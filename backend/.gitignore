@@ -1,0 +1,56 @@
+# ============================================================
+# SmartMeds Backend (Flask / Python) – .gitignore
+# ============================================================
+
+# ── Python ─────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.eggs/
+*.egg
+
+# ── Virtual Environments ───────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Firebase Credentials (CRITICAL – never commit) ─────────
+serviceAccountKey.json
+*service-account*.json
+*firebase-adminsdk*.json
+
+# ── Environment / Secrets ──────────────────────────────────
+.env
+.env.*
+!.env.example
+*.local
+
+# ── Flask / App Artifacts ──────────────────────────────────
+instance/
+uploads/
+*.db
+*.sqlite3
+
+# ── Testing / Coverage ─────────────────────────────────────
+.pytest_cache/
+htmlcov/
+coverage/
+.coverage
+
+# ── Logs ───────────────────────────────────────────────────
+*.log
+
+# ── macOS ──────────────────────────────────────────────────
+.DS_Store
+__MACOSX/
+
+# ── IDE ────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

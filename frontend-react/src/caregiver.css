@@ -1,0 +1,393 @@
+.caregiver-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem;
+  font-family: 'Segoe UI', Roboto, sans-serif;
+}
+
+.caregiver-header {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.caregiver-header h1 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 2rem;
+}
+
+.caregiver-header p {
+  margin: 0.5rem 0 0 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.logout-btn {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 0.7rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+  background: #c0392b;
+  transform: translateY(-2px);
+}
+
+.caregiver-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.add-patient-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.add-patient-section h2 {
+  color: #2c3e50;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.form-input {
+  flex: 1;
+  padding: 0.8rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alert {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.alert-error {
+  background: #ffe0e0;
+  color: #c0392b;
+  border-left: 4px solid #c0392b;
+}
+
+.alert-success {
+  background: #e8f5e9;
+  color: #27ae60;
+  border-left: 4px solid #27ae60;
+}
+
+.caregiver-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.patients-section,
+.medicines-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.patients-section h2,
+.medicines-section h2 {
+  color: #2c3e50;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+}
+
+.no-data {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+  font-style: italic;
+}
+
+.patients-list,
+.medicines-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.patient-item,
+.medicine-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border: 2px solid #f0f0f0;
+  border-radius: 8px;
+  margin-bottom: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.patient-item:hover,
+.medicine-item:hover {
+  border-color: #667eea;
+  background: #f9f9f9;
+}
+
+.patient-item.active {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.patient-info,
+.medicine-info {
+  flex: 1;
+}
+
+.patient-info strong,
+.medicine-info strong {
+  display: block;
+  color: #2c3e50;
+  margin-bottom: 0.3rem;
+}
+
+.patient-info small,
+.medicine-info small {
+  display: block;
+  color: #999;
+  font-size: 0.85rem;
+}
+
+.btn-remove {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  margin-left: 1rem;
+}
+
+.btn-remove:hover {
+  background: #c0392b;
+  transform: scale(1.1);
+}
+
+.add-medicine-form {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.add-medicine-form .form-input {
+  flex: 1;
+  min-width: 150px;
+}
+
+.add-medicine-form .btn-primary {
+  align-self: flex-start;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .caregiver-container {
+    padding: 1rem;
+  }
+
+  .caregiver-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .caregiver-body {
+    grid-template-columns: 1fr;
+  }
+
+  .form-group {
+    flex-direction: column;
+  }
+
+  .form-group .btn-primary {
+    width: 100%;
+  }
+
+  .add-medicine-form {
+    flex-direction: column;
+  }
+
+  .add-medicine-form .btn-primary {
+    width: 100%;
+    align-self: stretch;
+  }
+
+  .patient-item,
+  .medicine-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btn-remove {
+    margin-left: 0;
+    margin-top: 0.8rem;
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .caregiver-container {
+    padding: 0.5rem;
+  }
+
+  .caregiver-header {
+    padding: 1rem;
+  }
+
+  .caregiver-header h1 {
+    font-size: 1.3rem;
+  }
+
+  .add-patient-section,
+  .patients-section,
+  .medicines-section {
+    padding: 1rem;
+  }
+
+  .patient-item,
+  .medicine-item {
+    padding: 0.8rem;
+  }
+}
+
+/* Alerts Styles */
+.alerts-section {
+    background: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    animation: slideDown 0.5s ease;
+}
+
+.alerts-section h3 {
+    margin-top: 0;
+    color: #856404;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.alerts-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.alert-item {
+    background: white;
+    border-left: 4px solid #ffc107;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.alert-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.alert-content strong {
+    color: #856404;
+}
+
+.alert-content small {
+    color: #999;
+    font-size: 0.8rem;
+}
+
+.btn-dismiss {
+    background: #28a745;
+    color: white;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    transition: transform 0.2s;
+}
+
+.btn-dismiss:hover {
+    transform: scale(1.1);
+}
+
+.med-time {
+    color: #667eea !important;
+    font-weight: bold;
+    margin-top: 2px;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

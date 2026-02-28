@@ -1,0 +1,804 @@
+/* ===========================================
+   CAREGIVER DASHBOARD - DESKTOP FIRST DESIGN
+   =========================================== */
+
+/* Main Container - Full Height with Sidebar Layout */
+.caregiver-container {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f7fa;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ===========================================
+   SIDEBAR NAVIGATION
+   =========================================== */
+.caregiver-sidebar {
+  width: 280px;
+  background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.sidebar-header {
+  padding: 2rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sidebar-header p {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 1.5rem 0;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-left: 4px solid transparent;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.nav-item.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border-left-color: #3498db;
+}
+
+.nav-item-icon {
+  font-size: 1.3rem;
+  min-width: 24px;
+  text-align: center;
+}
+
+.logout-btn-header {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logout-btn-header:hover {
+  background: #c0392b;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+.sidebar-footer {
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logout-btn {
+  width: 100%;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  padding: 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.logout-btn:hover {
+  background: #c0392b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+/* ===========================================
+   MAIN CONTENT AREA
+   =========================================== */
+.caregiver-main {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  max-width: 1400px;
+}
+
+.content-header {
+  margin-bottom: 2rem;
+}
+
+.content-header h2 {
+  font-size: 2rem;
+  color: #2c3e50;
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+}
+
+.content-header p {
+  color: #7f8c8d;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* ===========================================
+   SECTIONS & CARDS
+   =========================================== */
+.caregiver-body {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.patients-section,
+.medicines-section {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e8e8e8;
+}
+
+.patients-section {
+  position: sticky;
+  top: 2rem;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
+.patients-section h2,
+.medicines-section h2 {
+  color: #2c3e50;
+  margin: 0 0 1.5rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+/* ===========================================
+   FORMS & INPUTS
+   =========================================== */
+.form-group {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-input {
+  flex: 1;
+  padding: 0.85rem 1rem;
+  border: 2px solid #e8e8e8;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.form-input::placeholder {
+  color: #bdc3c7;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: white;
+  border: none;
+  padding: 0.85rem 1.75rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.add-medicine-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.add-medicine-form .form-input {
+  min-width: 0;
+}
+
+.add-medicine-form .btn-primary {
+  grid-column: span 2;
+}
+
+/* ===========================================
+   LISTS - PATIENTS & MEDICINES
+   =========================================== */
+.patients-list,
+.medicines-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.patient-item,
+.medicine-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem;
+  border: 2px solid #f0f0f0;
+  border-radius: 12px;
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.patient-item:hover,
+.medicine-item:hover {
+  border-color: #3498db;
+  background: #f8fbff;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.15);
+}
+
+.patient-item.active {
+  border-color: #3498db;
+  background: #e8f4fd;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.2);
+}
+
+.patient-info,
+.medicine-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.patient-info strong,
+.medicine-info strong {
+  color: #2c3e50;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.patient-info small,
+.medicine-info small {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+.med-time {
+  color: #3498db !important;
+  font-weight: 600;
+  margin-top: 0.25rem;
+  background: #e8f4fd;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.btn-remove {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.btn-remove:hover {
+  background: #c0392b;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+/* ===========================================
+   ALERTS & MESSAGES
+   =========================================== */
+.alert {
+  padding: 1.25rem;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  animation: slideIn 0.3s ease;
+}
+
+.alert-error {
+  background: #fadbd8;
+  color: #c0392b;
+  border-left: 4px solid #e74c3c;
+}
+
+.alert-success {
+  background: #d4edda;
+  color: #27ae60;
+  border-left: 4px solid #28a745;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.no-data {
+  text-align: center;
+  color: #95a5a6;
+  padding: 3rem 2rem;
+  font-style: italic;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border: 2px dashed #e8e8e8;
+}
+
+/* ===========================================
+   STOCK MANAGEMENT STYLES
+   =========================================== */
+.stock-summary {
+  background: linear-gradient(135deg, #e8f4fd 0%, #d6eaf8 100%);
+  padding: 1.25rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  border: 1px solid #3498db;
+}
+
+.stock-summary strong {
+  margin-right: 0.5rem;
+  color: #2c3e50;
+}
+
+.warning-text {
+  color: #e67e22;
+  font-weight: 600;
+}
+
+.low-stock {
+  border-left: 4px solid #f39c12 !important;
+  background: #fef5e7 !important;
+}
+
+.expired {
+  border-left: 4px solid #e74c3c !important;
+  background: #fadbd8 !important;
+  opacity: 0.8;
+}
+
+.warning-badge,
+.error-badge {
+  display: inline-block;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.warning-badge {
+  background: #f39c12;
+  color: white;
+}
+
+.error-badge {
+  background: #e74c3c;
+  color: white;
+}
+
+.expiry-date {
+  color: #7f8c8d !important;
+  font-size: 0.8rem !important;
+}
+
+/* ===========================================
+   ALERTS SECTION
+   =========================================== */
+.alerts-section {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e8e8e8;
+  margin-bottom: 2rem;
+}
+
+.alerts-section h3 {
+  margin: 0 0 1.5rem;
+  color: #2c3e50;
+  font-size: 1.3rem;
+  font-weight: 700;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.alerts-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.alert-item {
+  background: #fff9e6;
+  border-left: 4px solid #f39c12;
+  padding: 1.25rem;
+  margin-bottom: 0.75rem;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 6px rgba(243, 156, 18, 0.1);
+}
+
+.alert-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.alert-content strong {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.alert-content small {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+.btn-dismiss {
+  background: #27ae60;
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.btn-dismiss:hover {
+  background: #229954;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+}
+
+/* ===========================================
+   RESPONSIVE - TABLET
+   =========================================== */
+@media (max-width: 1024px) {
+  .caregiver-body {
+    grid-template-columns: 350px 1fr;
+  }
+
+  .caregiver-sidebar {
+    width: 240px;
+  }
+}
+
+/* ===========================================
+   RESPONSIVE - MOBILE
+   =========================================== */
+@media (max-width: 768px) {
+  .caregiver-container {
+    flex-direction: column;
+  }
+
+  .caregiver-sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0;
+  }
+
+  .nav-item {
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1rem;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    font-size: 0.8rem;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .nav-item.active {
+    border-left: none;
+    border-bottom-color: #3498db;
+  }
+
+  .caregiver-main {
+    padding: 1rem;
+  }
+
+  .caregiver-body {
+    grid-template-columns: 1fr;
+  }
+
+  .patients-section {
+    position: static;
+    max-height: none;
+  }
+
+  .add-medicine-form {
+    grid-template-columns: 1fr;
+  }
+
+  .add-medicine-form .btn-primary {
+    grid-column: span 1;
+  }
+
+  .form-group {
+    flex-direction: column;
+  }
+}
+
+/* ===========================================
+   ENHANCED MEDICINE ITEMS WITH BADGES
+   =========================================== */
+.medicine-item-enhanced {
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  border: 2px solid #f0f0f0;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+  position: relative;
+}
+
+.medicine-item-enhanced:hover {
+  border-color: #3498db;
+  background: #f8fbff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.15);
+}
+
+.medicine-header-enhanced {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.medicine-name {
+  color: #2c3e50;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.medicine-badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.slot-badge,
+.time-badge,
+.status-badge,
+.dispense-badge {
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.slot-badge {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+.slot-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 10px rgba(102, 126, 234, 0.4);
+}
+
+.time-badge {
+  color: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.time-badge:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.status-badge {
+  color: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.status-badge:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.dispense-badge {
+  background: linear-gradient(135deg, #06d6a0 0%, #1de4b1 100%);
+  color: white;
+  box-shadow: 0 2px 6px rgba(6, 214, 160, 0.3);
+}
+
+.dispense-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 10px rgba(6, 214, 160, 0.4);
+}
+
+.medicine-details-enhanced {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.medicine-details-enhanced small {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+.added-by {
+  color: #95a5a6 !important;
+  font-style: italic;
+}
+
+/* Form row for side-by-side inputs */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  grid-column: span 2;
+}
+
+/* Checkbox label styling */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  border: 2px solid #e8e8e8;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.checkbox-label:hover {
+  border-color: #3498db;
+  background: #f8fbff;
+}
+
+.form-checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #3498db;
+}
+
+.checkbox-label span {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+/* Mobile adjustments for enhanced medicine items */
+@media (max-width: 768px) {
+  .medicine-header-enhanced {
+    flex-direction: column;
+  }
+
+  .medicine-badges {
+    width: 100%;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .slot-badge,
+  .time-badge,
+  .status-badge,
+  .dispense-badge {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.65rem;
+  }
+}

@@ -1,0 +1,130 @@
+import { useState, useEffect } from 'react';
+import { ref, onValue } from 'firebase/database';
+import { rtdb } from '../../config/firebase';
+import './styles/patient-home.css';
+
+export default function PatientHome({ user, onNavigate, onLogout }) {
+    const [medicineCount, setMedicineCount] = useState(0);
+    const [reminderCount, setReminderCount] = useState(0);
+
+    useEffect(() => {
+        if (!user?.uid) return;
+
+        // Load medicine count from Firebase
+        const medicinesRef = ref(rtdb, `medicines/${user.uid}`);
+        onValue(medicinesRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                setMedicineCount(Object.keys(data).length);
+            } else {
+                setMedicineCount(0);
+            }
+        }, { onlyOnce: true });
+
+        // Load reminder count from localStorage
+        try {
+            const stored = localStorage.getItem('smartmeds_reminders') || '[]';
+            const reminders = JSON.parse(stored);
+            setReminderCount(reminders.length);
+        } catch (e) {
+            console.warn('Failed to load reminders', e);
+        }
+    }, [user]);
+
+    return (
+        <div className="patient-home">
+            {/* Navigation Bar */}
+            <nav className="home-nav">
+                <div className="nav-brand">
+                    <span className="nav-icon">🎤</span>
+                    <span className="nav-title">SmartMeds</span>
+                </div>
+                <div className="nav-user">
+                    <span className="user-email">{user?.email}</span>
+                    <button className="logout-btn-nav" onClick={onLogout}>
+                        Logout
+                    </button>
+                </div>
+            </nav>
+
+            {/* Hero Section */}
+            <div className="hero-section animate-fadeIn">
+                <div className="welcome-badge glass">
+                    <span className="user-icon">👤</span>
+                    {user?.email?.split('@')[0] || 'Patient'}
+                </div>
+                <h1 className="hero-title">Welcome to SmartMeds</h1>
+                <p className="hero-subtitle">Your personal medicine management assistant</p>
+            </div>
+
+            {/* Feature Cards */}
+            <div className="features-grid">
+                <div 
+                    className="feature-card purple animate-slideUp"
+                    style={{ animationDelay: '0.1s' }}
+                    onClick={() => onNavigate()}
+                >
+                    <div className="feature-icon">🎤</div>
+                    <h3 className="feature-title">Voice Recording</h3>
+                    <p className="feature-description">
+                        Record your voice to detect and dispense medicines
+                    </p>
+                    <div className="feature-arrow">→</div>
+                </div>
+
+                <div 
+                    className="feature-card green animate-slideUp"
+                    style={{ animationDelay: '0.2s' }}
+                    onClick={() => onNavigate()}
+                >
+                    <div className="feature-icon">💊</div>
+                    <h3 className="feature-title">My Medicines</h3>
+                    <p className="feature-description">
+                        {medicineCount} medicine{medicineCount !== 1 ? 's' : ''} available
+                    </p>
+                    <div className="feature-arrow">→</div>
+                </div>
+
+                <div 
+                    className="feature-card pink animate-slideUp"
+                    style={{ animationDelay: '0.3s' }}
+                    onClick={() => onNavigate()}
+                >
+                    <div className="feature-icon">🔔</div>
+                    <h3 className="feature-title">Reminders</h3>
+                    <p className="feature-description">
+                        {reminderCount} active reminder{reminderCount !== 1 ? 's' : ''}
+                    </p>
+                    <div className="feature-arrow">→</div>
+                </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="quick-stats">
+                <div className="stat-card glass animate-scaleIn" style={{ animationDelay: '0.4s' }}>
+                    <div className="stat-icon">💊</div>
+                    <div className="stat-content">
+                        <div className="stat-value">{medicineCount}</div>
+                        <div className="stat-label">Available Medicines</div>
+                    </div>
+                </div>
+
+                <div className="stat-card glass animate-scaleIn" style={{ animationDelay: '0.5s' }}>
+                    <div className="stat-icon">🔔</div>
+                    <div className="stat-content">
+                        <div className="stat-value">{reminderCount}</div>
+                        <div className="stat-label">Active Reminders</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* CTA Button */}
+            <div className="cta-section animate-fadeIn" style={{ animationDelay: '0.6s' }}>
+                <button className="cta-button" onClick={() => onNavigate()}>
+                    <span>Start Voice Recording</span>
+                    <span className="cta-icon">🎤</span>
+                </button>
+            </div>
+        </div>
+    );
+}

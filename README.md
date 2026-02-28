@@ -53,3 +53,4 @@ Notes & next steps
 - Dosage extraction uses spaCy when `en_core_web_sm` is installed; otherwise a regex fallback is used. For better production extraction, consider training a custom NER model or integrating an external NLU.
 - The backend currently uses no authentication — add it if you run on an open network.
 # SmartMeds
+# SmartMeds

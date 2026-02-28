@@ -1,0 +1,55 @@
+# ============================================================
+# SmartMeds Mobile (Expo / React Native) – .gitignore
+# ============================================================
+
+# ── Node ───────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tgz
+
+# ── Expo ───────────────────────────────────────────────────
+.expo/
+.expo-shared/
+.jsc/
+web-build/
+dist/
+
+# ── Native Builds ──────────────────────────────────────────
+android/build/
+android/.gradle/
+android/app/build/
+ios/build/
+ios/Pods/
+ios/DerivedData/
+
+# ── Signing / Keys ─────────────────────────────────────────
+*.keystore
+!debug.keystore
+*.p8
+*.p12
+*.mobileprovision
+
+# ── Environment / Secrets ──────────────────────────────────
+.env
+.env.*
+!.env.example
+*.local
+
+# ── macOS ──────────────────────────────────────────────────
+.DS_Store
+__MACOSX/
+
+# ── IDE ────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Duplicate / Temp Files ─────────────────────────────────
+package-lock 2.json
+
+# ── Logs ───────────────────────────────────────────────────
+*.log

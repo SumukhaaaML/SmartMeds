@@ -1,0 +1,7 @@
+flask
+flask-cors
+SpeechRecognition
+requests
+spacy
+pytest
+pydub
