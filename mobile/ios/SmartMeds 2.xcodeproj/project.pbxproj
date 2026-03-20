@@ -259,12 +259,14 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.name.SmartMeds;
-				PRODUCT_NAME = SmartMeds;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.smartmedsmobile";
+				PRODUCT_NAME = "SmartMeds";
 				SWIFT_OBJC_BRIDGING_HEADER = "SmartMeds/SmartMeds-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				TARGETED_DEVICE_FAMILY = "1";
+				CODE_SIGN_ENTITLEMENTS = SmartMeds/SmartMeds.entitlements;
 			};
 			name = Debug;
 		};
@@ -286,11 +288,13 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.name.SmartMeds;
-				PRODUCT_NAME = SmartMeds;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.smartmedsmobile";
+				PRODUCT_NAME = "SmartMeds";
 				SWIFT_OBJC_BRIDGING_HEADER = "SmartMeds/SmartMeds-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				TARGETED_DEVICE_FAMILY = "1";
+				CODE_SIGN_ENTITLEMENTS = SmartMeds/SmartMeds.entitlements;
 			};
 			name = Release;
 		};
