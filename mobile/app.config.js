@@ -1,9 +1,9 @@
 // app.config.js reads .env at build time via process.env and injects values
 // into Constants.expoConfig.extra for use inside the app.
 // The .env file is gitignored – never commit it.
-import 'dotenv/config';
+require('dotenv').config();
 
-export default ({ config }) => ({
+module.exports = ({ config }) => ({
   ...config,
   name: 'SmartMeds',
   slug: 'smartmeds-mobile',
