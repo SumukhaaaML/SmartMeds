@@ -7,7 +7,6 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json       # each sub-project manages its own
 *.tgz
 
 # ── Build / Dist ───────────────────────────────────────────
@@ -31,9 +30,12 @@ env/
 *.egg
 
 # ── Environment / Secrets ──────────────────────────────────
+# !! CRITICAL: NEVER COMMIT .env FILES WITH REAL CREDENTIALS !!
 .env
 .env.*
-!.env.example          # keep the example template
+**/.env
+**/.env.*
+!**/.env.example     # keep example templates
 *.local
 
 # ── Firebase Credentials (NEVER commit) ────────────────────
@@ -72,8 +74,11 @@ __MACOSX/
 *.swo
 *~
 
-# ── VS Code History ────────────────────────────────────────
+# ── VS Code Local History Extension ────────────────────────
+# This extension stores file snapshots with timestamps which
+# can inadvertently contain secrets you've since removed.
 .history/
+**/.history/
 
 # ── Testing / Coverage ─────────────────────────────────────
 coverage/
