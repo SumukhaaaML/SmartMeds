@@ -3,16 +3,30 @@ import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/aut
 import { getFirestore } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-export const firebaseConfig = {
-    apiKey: "Your API Key",
-    authDomain: "project-9b931.firebaseapp.com",
-    projectId: "project-9b931",
-    storageBucket: "project.firebasestorage.app",
-    messagingSenderId: "462540698447",
-    appId: "",
-    measurementId: "G-YGTPHYCTY3",
-    databaseURL: "Your DB URL"
+// Firebase config is injected at build time from .env via app.config.js
+// Access via Constants.expoConfig.extra — never hardcode keys here.
+const {
+    firebaseApiKey,
+    firebaseAuthDomain,
+    firebaseProjectId,
+    firebaseStorageBucket,
+    firebaseMessagingSenderId,
+    firebaseAppId,
+    firebaseMeasurementId,
+    firebaseDatabaseUrl,
+} = Constants.expoConfig?.extra ?? {};
+
+const firebaseConfig = {
+    apiKey: firebaseApiKey,
+    authDomain: firebaseAuthDomain,
+    projectId: firebaseProjectId,
+    storageBucket: firebaseStorageBucket,
+    messagingSenderId: firebaseMessagingSenderId,
+    appId: firebaseAppId,
+    measurementId: firebaseMeasurementId,
+    databaseURL: firebaseDatabaseUrl,
 };
 
 // Initialize Firebase app only if not already initialized
