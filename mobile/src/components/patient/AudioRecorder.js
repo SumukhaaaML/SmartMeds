@@ -43,7 +43,7 @@ export default function AudioRecorder({ user, onDetection }) {
                 return;
             }
             const rec = new Audio.Recording();
-            await rec.prepareToRecordAsync(Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
+            await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
             await rec.startAsync();
             recordingRef.current = rec;
             setIsRecording(true);

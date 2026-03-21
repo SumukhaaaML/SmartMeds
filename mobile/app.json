@@ -2,9 +2,9 @@
   "expo": {
     "name": "SmartMeds",
     "slug": "smartmeds-mobile",
+    "scheme": "smartmeds",
     "version": "1.0.0",
     "platforms": [
-      "ios",
       "android",
       "web"
     ],
@@ -15,7 +15,8 @@
           "icon": "./assets/notification-icon.png",
           "color": "#4834d4"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "web": {
       "bundler": "metro"
@@ -27,14 +28,6 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
       ]
-    },
-    "ios": {
-      "bundleIdentifier": "com.anonymous.smartmedsmobile",
-      "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
-      }
     },
     "extra": {
       "eas": {
