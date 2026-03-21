@@ -51,6 +51,32 @@ pytest -q
 
 Notes & next steps
 - Dosage extraction uses spaCy when `en_core_web_sm` is installed; otherwise a regex fallback is used. For better production extraction, consider training a custom NER model or integrating an external NLU.
-- The backend currently uses no authentication — add it if you run on an open network.
-# SmartMeds
-# SmartMeds
+
+Production backend run (Gunicorn)
+1. Configure backend environment:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+2. Export values from `backend/.env` (or inject via your platform secret manager), especially:
+- `APP_ENV=production`
+- `SMARTMEDS_API_KEY`
+- `ALLOWED_ORIGINS`
+- `FIREBASE_CREDENTIALS_PATH`
+
+3. Install backend dependencies and run Gunicorn:
+
+```bash
+cd backend
+pip install -r requirements.txt
+gunicorn -c gunicorn.conf.py wsgi:app
+```
+
+4. Health checks:
+- `GET /health` for liveness
+- `GET /ready` for dependency readiness
+
+Scheduler note
+- In production web processes, keep `ENABLE_SCHEDULER=false` to avoid duplicate jobs across multiple Gunicorn workers.
+- Run scheduler in a dedicated single-process deployment when needed.

@@ -1,17 +1,15 @@
 from flask import Flask, request, jsonify
+from werkzeug.exceptions import HTTPException
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
+import logging
 import speech_recognition as sr
 import tempfile
-import difflib
-import re
-import requests
 import subprocess
-import json
 from nlp_utils import find_closest_medicine, extract_dosage
-from validators import validate_request_data, sanitize_string
+from validators import validate_uid
 
 # Firebase Admin SDK
 try:
@@ -19,7 +17,7 @@ try:
     from firebase_admin import credentials, db, firestore
     FIREBASE_AVAILABLE = True
 except Exception as e:
-    print(f"WARNING: Firebase Admin SDK not available: {e}")
+    logging.warning("Firebase Admin SDK not available: %s", e)
     FIREBASE_AVAILABLE = False
 
 # Optional: use pydub to convert mobile audio formats (m4a, ogg, webm) to WAV
@@ -40,25 +38,58 @@ def check_ffmpeg_available():
 
 FFMPEG_AVAILABLE = check_ffmpeg_available()
 
+
+def as_bool(value, default=False):
+    """Parse env bools safely."""
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def get_default_firebase_credentials_path():
+    """Use backend-local credentials file by default."""
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(backend_dir, "serviceAccountKey.json")
+
+
+APP_ENV = os.getenv("APP_ENV", os.getenv("FLASK_ENV", "development")).lower()
+IS_PRODUCTION = APP_ENV == "production"
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("smartmeds.backend")
+
 # Initialize Firebase
 if FIREBASE_AVAILABLE:
     try:
-        creds_path = os.getenv('FIREBASE_CREDENTIALS_PATH', 'serviceAccountKey.json')
-        if os.path.exists(creds_path):
-            cred = credentials.Certificate(creds_path)
+        if os.getenv("FIREBASE_CREDENTIALS_JSON"):
+            import json
+            cred_dict = json.loads(os.getenv("FIREBASE_CREDENTIALS_JSON"))
+            cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://smartmeds-9b931-default-rtdb.firebaseio.com'
+                "databaseURL": os.getenv("FIREBASE_DATABASE_URL", "https://smartmeds-9b931-default-rtdb.firebaseio.com")
             })
-            print("Firebase initialized successfully")
+            logger.info("Firebase initialized successfully from JSON environment variable")
         else:
-            print(f"WARNING: Firebase credentials file not found at {creds_path}")
-            FIREBASE_AVAILABLE = False
+            creds_path = os.getenv("FIREBASE_CREDENTIALS_PATH", get_default_firebase_credentials_path())
+            if os.path.exists(creds_path):
+                cred = credentials.Certificate(creds_path)
+                firebase_admin.initialize_app(cred, {
+                    "databaseURL": os.getenv("FIREBASE_DATABASE_URL", "https://smartmeds-9b931-default-rtdb.firebaseio.com")
+                })
+                logger.info("Firebase initialized successfully")
+            else:
+                logger.warning("Firebase credentials file not found at %s", creds_path)
+                FIREBASE_AVAILABLE = False
     except Exception as e:
-        print(f"WARNING: Failed to initialize Firebase: {e}")
+        logger.warning("Failed to initialize Firebase: %s", e)
         FIREBASE_AVAILABLE = False
 
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_SIZE_MB", "15")) * 1024 * 1024
 
 
 # SECURITY CONFIGURATION
@@ -77,7 +108,7 @@ limiter = Limiter(
     get_remote_address,
     app=app,
     default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://",
+    storage_uri=os.getenv("RATE_LIMIT_STORAGE_URI", "memory://"),
 )
 
 # Security Headers Middleware
@@ -87,7 +118,7 @@ def add_security_headers(response):
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-Content-Type-Options'] = 'nosniff'  
     response.headers['X-XSS-Protection'] = '1; mode=block'
-    if os.getenv('FLASK_ENV') == 'production':
+    if IS_PRODUCTION:
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     response.headers['Content-Security-Policy'] = "default-src 'self'"
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
@@ -100,6 +131,8 @@ def add_security_headers(response):
 
 RPI_ENDPOINT = os.getenv("RPI_ENDPOINT", None)
 API_KEY = os.getenv("SMARTMEDS_API_KEY", None)
+REQUIRE_API_KEY = as_bool(os.getenv("REQUIRE_API_KEY"), default=IS_PRODUCTION)
+ENABLE_SCHEDULER = as_bool(os.getenv("ENABLE_SCHEDULER"), default=not IS_PRODUCTION)
 
 MEDICINE_LIST = [
     "Paracetamol",
@@ -126,7 +159,7 @@ def get_patient_medicines(patient_uid):
     
     try:
         medicines = []
-        medicines_ref = db.collection('users').document(patient_uid).collection('medicines')
+        medicines_ref = firestore.client().collection("users").document(patient_uid).collection("medicines")
         docs = medicines_ref.stream()
         
         for doc in docs:
@@ -135,14 +168,61 @@ def get_patient_medicines(patient_uid):
                 medicines.append(medicine_data['name'])
         
         if medicines:
-            print(f"Loaded {len(medicines)} medicines from Firebase for patient {patient_uid}")
+            logger.info("Loaded %s medicines from Firebase for patient %s", len(medicines), patient_uid)
             return medicines
         else:
-            print(f"WARNING: No medicines found in Firebase, using default list")
+            logger.warning("No medicines found in Firebase, using default list")
             return MEDICINE_LIST
     except Exception as e:
-        print(f"WARNING: Failed to fetch medicines from Firebase: {e}")
+        logger.warning("Failed to fetch medicines from Firebase: %s", e)
         return MEDICINE_LIST
+
+
+def require_api_key():
+    """Enforce API key when configured and required."""
+    if not REQUIRE_API_KEY:
+        return None
+
+    if not API_KEY:
+        logger.error("REQUIRE_API_KEY is enabled but SMARTMEDS_API_KEY is not set")
+        return jsonify({"error": "Server is not configured for authenticated requests"}), 503
+
+    auth = request.headers.get("Authorization", "")
+    header_key = None
+    if auth.lower().startswith("bearer "):
+        header_key = auth.split(None, 1)[1].strip()
+    else:
+        header_key = request.headers.get("X-API-KEY")
+
+    if header_key != API_KEY:
+        return jsonify({"error": "Unauthorized"}), 401
+    return None
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    """Return generic 500 without leaking internals."""
+    if isinstance(error, HTTPException):
+        return error
+    logger.exception("Unhandled server error: %s", error)
+    if IS_PRODUCTION:
+        return jsonify({"error": "Internal server error"}), 500
+    return jsonify({"error": str(error)}), 500
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok", "service": "smartmeds-backend", "environment": APP_ENV}), 200
+
+
+@app.route("/ready", methods=["GET"])
+def ready():
+    return jsonify({
+        "status": "ready",
+        "firebase": FIREBASE_AVAILABLE,
+        "ffmpeg": FFMPEG_AVAILABLE,
+        "audio_conversion": PYDUB_AVAILABLE or FFMPEG_AVAILABLE
+    }), 200
 
 # find_closest_medicine and extract_dosage are provided by backend/nlp_utils.py
 
@@ -153,6 +233,8 @@ def process_audio():
     
     # Get patient UID from query params (optional)
     patient_uid = request.args.get('patient_uid')
+    if patient_uid and not validate_uid(patient_uid):
+        return jsonify({"error": "invalid patient_uid"}), 400
     
     # Get medicines list (patient-specific if UID provided, otherwise default)
     if patient_uid and FIREBASE_AVAILABLE:
@@ -169,53 +251,56 @@ def process_audio():
     orig_suffix = os.path.splitext(audio_file.filename or "")[1] or ""
     with tempfile.NamedTemporaryFile(delete=False, suffix=orig_suffix or ".tmp") as temp_in:
         audio_file.save(temp_in.name)
+    temp_input_path = temp_in.name
 
     # Ensure we have a WAV file for the speech_recognition library
     wav_path = None
-    if orig_suffix.lower().endswith('.wav'):
-        wav_path = temp_in.name
-    else:
-        # Try to convert with pydub if available
-        if PYDUB_AVAILABLE:
-            try:
-                audio = AudioSegment.from_file(temp_in.name)
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
-                    audio.export(temp_wav.name, format="wav")
-                    wav_path = temp_wav.name
-            except Exception as e:
-                # conversion failed, try ffmpeg next
-                if FFMPEG_AVAILABLE:
-                    try:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
-                            subprocess.run([
-                                'ffmpeg', '-i', temp_in.name,
-                                '-acodec', 'pcm_s16le', '-ar', '16000',
-                                temp_wav.name, '-y'
-                            ], capture_output=True, timeout=10)
-                            wav_path = temp_wav.name
-                    except Exception as e2:
-                        return jsonify({"error": f"pydub and ffmpeg conversions failed: {e}, {e2}"}), 400
-                else:
-                    return jsonify({"error": f"Audio conversion failed: {e}. Install ffmpeg (macOS: 'brew install ffmpeg', Linux: 'apt-get install ffmpeg')."}), 400
-        elif FFMPEG_AVAILABLE:
-            # Try ffmpeg via subprocess if pydub not available
-            try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
-                    subprocess.run([
-                        'ffmpeg', '-i', temp_in.name,
-                        '-acodec', 'pcm_s16le', '-ar', '16000',
-                        temp_wav.name, '-y'
-                    ], capture_output=True, timeout=10)
-                    wav_path = temp_wav.name
-            except Exception as e:
-                return jsonify({"error": f"ffmpeg conversion failed: {e}"}), 400
+    try:
+        if orig_suffix.lower().endswith('.wav'):
+            wav_path = temp_input_path
         else:
-            return jsonify({"error": "Uploaded audio is not WAV. Server does not have pydub/ffmpeg installed to convert common mobile formats. Install ffmpeg: 'brew install ffmpeg' (macOS) or 'apt-get install ffmpeg' (Linux)."}), 400
+            # Try to convert with pydub if available
+            if PYDUB_AVAILABLE:
+                try:
+                    audio = AudioSegment.from_file(temp_input_path)
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
+                        audio.export(temp_wav.name, format="wav")
+                        wav_path = temp_wav.name
+                except Exception as e:
+                    # conversion failed, try ffmpeg next
+                    if FFMPEG_AVAILABLE:
+                        try:
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
+                                subprocess.run([
+                                    "ffmpeg", "-i", temp_input_path,
+                                    "-acodec", "pcm_s16le", "-ar", "16000",
+                                    temp_wav.name, "-y"
+                                ], check=True, capture_output=True, timeout=10)
+                                wav_path = temp_wav.name
+                        except Exception as e2:
+                            logger.warning("Audio conversion failed with pydub and ffmpeg: %s | %s", e, e2)
+                            return jsonify({"error": "Audio conversion failed"}), 400
+                    else:
+                        return jsonify({"error": "Audio conversion failed. Install ffmpeg to support mobile formats."}), 400
+            elif FFMPEG_AVAILABLE:
+                # Try ffmpeg via subprocess if pydub not available
+                try:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
+                        subprocess.run([
+                            "ffmpeg", "-i", temp_input_path,
+                            "-acodec", "pcm_s16le", "-ar", "16000",
+                            temp_wav.name, "-y"
+                        ], check=True, capture_output=True, timeout=10)
+                        wav_path = temp_wav.name
+                except Exception as e:
+                    logger.warning("ffmpeg conversion failed: %s", e)
+                    return jsonify({"error": "Audio conversion failed"}), 400
+            else:
+                return jsonify({"error": "Uploaded audio is not WAV and conversion support is unavailable."}), 400
 
-    recognizer = sr.Recognizer()
-    with sr.AudioFile(wav_path) as source:
-        audio_data = recognizer.record(source)
-        try:
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(wav_path) as source:
+            audio_data = recognizer.record(source)
             text = recognizer.recognize_google(audio_data)
             
             # Check if it's a batch command (e.g., "dispense today's medicines" or "morning medicine")
@@ -279,10 +364,17 @@ def process_audio():
                     "status": "not_found",
                     "message": "No matching medicine found"
                 })
-        except sr.UnknownValueError:
-            return jsonify({"error": "Could not understand audio"}), 400
-        except sr.RequestError as e:
-            return jsonify({"error": f"Speech recognition error: {e}"}), 500
+    except sr.UnknownValueError:
+        return jsonify({"error": "Could not understand audio"}), 400
+    except sr.RequestError:
+        return jsonify({"error": "Speech recognition service unavailable"}), 503
+    finally:
+        for path in {temp_input_path, wav_path}:
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    logger.warning("Failed to remove temp file: %s", path)
 
 
 @app.route("/get_todays_medicines", methods=["GET"])
@@ -292,6 +384,8 @@ def get_todays_medicines():
     
     if not patient_uid:
         return jsonify({"error": "patient_uid is required"}), 400
+    if not validate_uid(patient_uid):
+        return jsonify({"error": "invalid patient_uid"}), 400
     
     if not FIREBASE_AVAILABLE:
         return jsonify({"error": "Firebase not available"}), 503
@@ -328,8 +422,8 @@ def get_todays_medicines():
             "status": "success"
         })
     except Exception as e:
-        print(f"WARNING: Failed to fetch today's medicines: {e}")
-        return jsonify({"error": str(e)}), 500
+        logger.warning("Failed to fetch today's medicines: %s", e)
+        return jsonify({"error": "Failed to fetch medicines"}), 500
 
 
 @app.route("/send_instruction", methods=["POST"])
@@ -344,20 +438,9 @@ def send_instruction():
         "action": "dispense"
     }
     """
-    # Authentication: require API key for dispense actions
-    if API_KEY:
-        # accept either Authorization: Bearer <key> or X-API-KEY header
-        auth = request.headers.get("Authorization", "")
-        header_key = None
-        if auth.lower().startswith("bearer "):
-            header_key = auth.split(None, 1)[1].strip()
-        else:
-            header_key = request.headers.get("X-API-KEY")
-
-        # For now, allow requests without API key (for testing)
-        # In production, uncomment this:
-        # if header_key != API_KEY:
-        #     return jsonify({"error": "Unauthorized - invalid API key"}), 401
+    auth_error = require_api_key()
+    if auth_error:
+        return auth_error
 
     data = request.get_json() or {}
     medicine_name = data.get("medicine_name")
@@ -368,6 +451,8 @@ def send_instruction():
     
     if not patient_uid:
         return jsonify({"error": "patient_uid is required"}), 400
+    if not validate_uid(patient_uid):
+        return jsonify({"error": "invalid patient_uid"}), 400
 
     if not FIREBASE_AVAILABLE:
         return jsonify({"error": "Firebase not available"}), 503
@@ -378,7 +463,7 @@ def send_instruction():
         medicine_info = resolve_medicine_number(medicine_number, patient_uid)
         if medicine_info:
             medicine_name = medicine_info['name']
-            print(f"Resolved medicine #{medicine_number} to {medicine_name}")
+            logger.info("Resolved medicine #%s to %s", medicine_number, medicine_name)
         else:
             return jsonify({"error": f"Medicine #{medicine_number} not found for patient"}), 404
 
@@ -415,7 +500,10 @@ def send_instruction():
             'dispensedAt': datetime.now().isoformat()  # Add this to update the counter
         })
         
-        print(f"Updated {medicine_name} (slot {medicine_slot}, #{medicine_num}) to ready_to_dispense for patient {patient_uid}")
+        logger.info(
+            "Updated %s (slot %s, #%s) to ready_to_dispense for patient %s",
+            medicine_name, medicine_slot, medicine_num, patient_uid
+        )
         
         return jsonify({
             "status": "success",
@@ -427,8 +515,8 @@ def send_instruction():
         })
     
     except Exception as e:
-        print(f"ERROR: Error updating medicine status: {e}")
-        return jsonify({"error": str(e)}), 500
+        logger.error("Error updating medicine status: %s", e)
+        return jsonify({"error": "Failed to update medicine status"}), 500
 
 
 @app.route("/dispense_by_time", methods=["POST"])
@@ -440,6 +528,10 @@ def dispense_by_time():
         "patient_uid": "abc123"
     }
     """
+    auth_error = require_api_key()
+    if auth_error:
+        return auth_error
+
     data = request.get_json() or {}
     time_category = data.get("time")
     patient_uid = data.get("patient_uid")
@@ -449,6 +541,8 @@ def dispense_by_time():
     
     if not patient_uid:
         return jsonify({"error": "patient_uid is required"}), 400
+    if not validate_uid(patient_uid):
+        return jsonify({"error": "invalid patient_uid"}), 400
     
     if time_category not in ['morning', 'afternoon', 'evening', 'night']:
         return jsonify({"error": "time must be morning, afternoon, evening, or night"}), 400
@@ -494,7 +588,10 @@ def dispense_by_time():
                 "medicines": []
             })
         
-        print(f"Marked {updated_count} {time_category} medicines ready to dispense for patient {patient_uid}")
+        logger.info(
+            "Marked %s %s medicines ready to dispense for patient %s",
+            updated_count, time_category, patient_uid
+        )
         
         return jsonify({
             "status": "success",
@@ -504,16 +601,24 @@ def dispense_by_time():
         })
     
     except Exception as e:
-        print(f" ERROR: Error updating medicines by time: {e}")
-        return jsonify({"error": str(e)}), 500
+        logger.error("Error updating medicines by time: %s", e)
+        return jsonify({"error": "Failed to update medicines"}), 500
 
 
 # Import and start scheduler
-try:
-    from scheduler import start_scheduler
-    start_scheduler()
-except ImportError:
-    print("WARNING: Scheduler not found or failed to import")
+if ENABLE_SCHEDULER:
+    try:
+        from scheduler import start_scheduler
+        start_scheduler()
+    except ImportError:
+        logger.warning("Scheduler not found or failed to import")
+else:
+    logger.info("Scheduler startup is disabled")
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False) # use_reloader=False prevents double scheduler start
+    app.run(
+        host=os.getenv("HOST", "0.0.0.0"),
+        port=int(os.getenv("PORT", "5000")),
+        debug=as_bool(os.getenv("FLASK_DEBUG"), default=not IS_PRODUCTION),
+        use_reloader=False,
+    )

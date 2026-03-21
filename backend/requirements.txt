@@ -6,3 +6,4 @@ firebase-admin==6.2.0
 exponent_server_sdk==2.0.0
 APScheduler==3.10.4
 flask-limiter==3.5.0
+gunicorn==23.0.0
