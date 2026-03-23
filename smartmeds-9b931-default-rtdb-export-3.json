@@ -1,0 +1,157 @@
+{
+  "caregivers": {
+    "OnaNOPmo6OXsImMp41LVJpu4SZN2": {
+      "patients": {
+        "Q0Aq9i5sUqeU2D4n4eWpPzLMjth2": {
+          "addedAt": "2026-03-22T05:46:45.037Z",
+          "email": "Patient3@gmail.com",
+          "name": "Patient"
+        }
+      }
+    },
+    "pb6fi6rB5NNTjAIbYavfR3vcNXe2": {
+      "patients": {
+        "HcOuDM7uXTgvG22WS1XXHZcTmqm1": {
+          "addedAt": "2026-02-09T05:27:42.167Z",
+          "email": "patient1@gmail.com",
+          "name": "Patient1"
+        },
+        "KP1iwQNrJRMkvv8iGylDpzgDrDy1": {
+          "addedAt": "2026-02-09T09:00:07.020Z",
+          "email": "patient2@gmail.com",
+          "name": "Patient"
+        }
+      }
+    }
+  },
+  "medicineStock": {
+    "pb6fi6rB5NNTjAIbYavfR3vcNXe2": {
+      "-Ol-tbKS1HlzRSxorAgy": {
+        "addedAt": "2026-02-09T05:36:10.421Z",
+        "addedBy": "caregiver1@gmail.com",
+        "expiryDate": "2026-02-09",
+        "name": "Paracetamol",
+        "quantity": 500,
+        "reorderLevel": 10,
+        "unit": "tablets"
+      }
+    }
+  },
+  "medicines": {
+    "HcOuDM7uXTgvG22WS1XXHZcTmqm1": {
+      "-Ol-tgKJ6NilzF9oVxeD": {
+        "addedAt": "2026-02-09T05:36:30.892Z",
+        "addedBy": "caregiver1@gmail.com",
+        "dispense": true,
+        "dispensedAt": "2026-02-10T07:15:01.283227",
+        "dosage": "500 mg",
+        "name": "Paracetamol",
+        "requestedAt": "2026-02-10T07:15:01.281917",
+        "slot": 1,
+        "status": "ready_to_dispense",
+        "time": "morning"
+      },
+      "-Ol0cuL0aw6o3BZciDat": {
+        "addedAt": "2026-02-09T09:02:49.402Z",
+        "addedBy": "caregiver1@gmail.com",
+        "dosage": "650",
+        "name": "Dolo",
+        "scheduledTime": "08:00",
+        "slot": 1,
+        "status": "pending",
+        "time": "morning"
+      }
+    },
+    "Q0Aq9i5sUqeU2D4n4eWpPzLMjth2": {
+      "-OoJ4MfdCpMNtEqDvc40": {
+        "addedAt": "2026-03-22T05:47:25.218Z",
+        "addedBy": "Caregiver2@gmaio.com",
+        "dispensedAt": "2026-03-22T11:32:17.986950",
+        "dosage": "500 mg",
+        "name": "Paracetamol",
+        "requestedAt": "2026-03-22T11:32:17.986929",
+        "scheduledTime": "08:00",
+        "slot": 1,
+        "status": "ready_to_dispense",
+        "time": "morning"
+      }
+    }
+  },
+  "slots": {
+    "Q0Aq9i5sUqeU2D4n4eWpPzLMjth2": {
+      "-OoLfwmLfAeckvHHuOAI": {
+        "addedAt": "2026-03-22T17:55:13.107Z",
+        "addedBy": "Caregiver2@gmaio.com",
+        "dayOfWeek": [
+          "tue",
+          "wed",
+          "thu",
+          "fri",
+          "sat",
+          "sun"
+        ],
+        "dispense": true,
+        "dispensedAt": "2026-03-22T23:26:32.448729",
+        "medicines": [
+          "Paracetamol , dolo"
+        ],
+        "notes": "Take it with water | Take it with water",
+        "reminded": false,
+        "requestedAt": "2026-03-22T23:26:32.448704",
+        "scheduledTime": "8:00",
+        "slotNumber": 1,
+        "status": "ready_to_dispense"
+      },
+      "-OoLgZZqvPo1j-0IQ4qS": {
+        "addedAt": "2026-03-22T17:57:56.083Z",
+        "addedBy": "Caregiver2@gmaio.com",
+        "dayOfWeek": [
+          "wed",
+          "thu",
+          "fri",
+          "sat",
+          "sun",
+          "tue"
+        ],
+        "dispense": true,
+        "medicines": [
+          "Paracetamol , dolo"
+        ],
+        "notes": "",
+        "reminded": false,
+        "scheduledTime": "12:00",
+        "slotNumber": 2,
+        "status": "pending"
+      }
+    }
+  },
+  "users": {
+    "HcOuDM7uXTgvG22WS1XXHZcTmqm1": {
+      "createdAt": "2026-02-09T05:17:06.609Z",
+      "email": "patient1@gmail.com",
+      "name": "Patient1",
+      "userType": "patient"
+    },
+    "KP1iwQNrJRMkvv8iGylDpzgDrDy1": {
+      "createdAt": "2026-02-09T07:58:06.797Z",
+      "email": "patient2@gmail.com",
+      "userType": "patient"
+    },
+    "OnaNOPmo6OXsImMp41LVJpu4SZN2": {
+      "createdAt": "2026-03-22T05:43:53.944Z",
+      "email": "Caregiver2@gmaio.com",
+      "userType": "caregiver"
+    },
+    "Q0Aq9i5sUqeU2D4n4eWpPzLMjth2": {
+      "createdAt": "2026-03-22T05:36:52.120Z",
+      "email": "Patient3@gmail.com",
+      "userType": "patient"
+    },
+    "pb6fi6rB5NNTjAIbYavfR3vcNXe2": {
+      "createdAt": "2026-02-09T05:16:32.292Z",
+      "email": "caregiver1@gmail.com",
+      "name": "Caregiver1",
+      "userType": "caregiver"
+    }
+  }
+}

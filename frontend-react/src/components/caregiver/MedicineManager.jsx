@@ -21,13 +21,21 @@ export default function MedicineManager({ selectedPatient, user }) {
             return;
         }
 
-        const medicinesRef = ref(rtdb, `medicines/${selectedPatient.id}`);
-        const unsubscribe = onValue(medicinesRef, (snapshot) => {
+        const slotsRef = ref(rtdb, `slots/${selectedPatient.id}`);
+        const unsubscribe = onValue(slotsRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
                 const meds = Object.keys(data).map(key => ({
                     id: key,
-                    ...data[key]
+                    slot: data[key].slotNumber,
+                    name: Array.isArray(data[key].medicines) ? data[key].medicines.join(', ') : '',
+                    time: data[key].dayOfWeek ? (Array.isArray(data[key].dayOfWeek) ? data[key].dayOfWeek.join(',') : '') : '',
+                    dispense: data[key].dispense,
+                    status: data[key].status,
+                    dosage: data[key].notes || '',
+                    addedBy: data[key].addedBy,
+                    scheduledTime: data[key].scheduledTime,
+                    notes: data[key].notes || '',
                 }));
                 setPatientMedicines(meds);
             } else {
@@ -65,16 +73,22 @@ export default function MedicineManager({ selectedPatient, user }) {
 
         setLoading(true);
         try {
-            const medicinesRef = ref(rtdb, `medicines/${selectedPatient.id}`);
-            const newMedicineRef = push(medicinesRef);
+            const slotsRef2 = ref(rtdb, `slots/${selectedPatient.id}`);
+            const newSlotRef = push(slotsRef2);
 
-            await set(newMedicineRef, {
-                name: newMedicineName.trim(),
-                slot: parseInt(selectedSlot),
-                time: selectedTime,
+            await set(newSlotRef, {
+                slotNumber: parseInt(selectedSlot),
+                medicines: [newMedicineName.trim()],
+                dayOfWeek: ['mon','tue','wed','thu','fri','sat','sun'],
+                scheduledTime: selectedTime === 'morning' ? '08:00'
+                             : selectedTime === 'afternoon' ? '13:00'
+                             : selectedTime === 'evening' ? '18:00' : '21:00',
                 dispense: autoDispense,
                 status: medicineStatus,
-                dosage: newMedicineDosage.trim() || '',
+                notes: newMedicineDosage.trim() || '',
+                reminded: false,
+                completedAt: null,
+                missedAt: null,
                 addedBy: user.email,
                 addedAt: new Date().toISOString()
             });
@@ -96,7 +110,7 @@ export default function MedicineManager({ selectedPatient, user }) {
     const deleteMedicine = async (medicineId) => {
         if (!selectedPatient || !window.confirm('Delete this medicine?')) return;
         try {
-            await remove(ref(rtdb, `medicines/${selectedPatient.id}/${medicineId}`));
+            await remove(ref(rtdb, `slots/${selectedPatient.id}/${medicineId}`));
             setSuccess('✅ Medicine removed');
         } catch (err) {
             setError('Failed to delete medicine: ' + err.message);

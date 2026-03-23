@@ -14,37 +14,32 @@ export default function PatientHome({ user, onNavigate, onLogout }) {
     useEffect(() => {
         if (!user?.uid) return;
 
-        // Load medicine count from Firebase
-        const medicinesRef = ref(rtdb, `medicines/${user.uid}`);
-        const unsubscribeMeds = onValue(medicinesRef, (snapshot) => {
+        // Load slots from Firebase (new schema)
+        const slotsRef = ref(rtdb, `slots/${user.uid}`);
+        const unsubscribeMeds = onValue(slotsRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
-                const medicineList = Object.keys(data).map(key => ({
-                    id: key,
-                    ...data[key]
-                }));
+                // Flatten all medicines from all slots
+                const allMeds = [];
+                const today = new Date().toDateString();
+                let todayDispenses = 0;
+                Object.keys(data).forEach(slotId => {
+                    const slot = data[slotId];
+                    (slot.medicines || []).forEach(medName => {
+                        allMeds.push({ id: `${slotId}_${medName}`, name: medName, slot: slot.slotNumber, addedAt: slot.addedAt, dispensedAt: slot.dispensedAt || null });
+                    });
+                    if (slot.dispensedAt && new Date(slot.dispensedAt).toDateString() === today) {
+                        todayDispenses++;
+                    }
+                });
 
-                setStats(prev => ({
-                    ...prev,
-                    totalMedicines: medicineList.length
-                }));
+                setStats(prev => ({ ...prev, totalMedicines: allMeds.length, todayDispenses }));
 
-                // Get 3 most recent medicines
-                const sorted = medicineList
+                // Get 3 most recently added slot medicines
+                const sorted = allMeds
                     .sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0))
                     .slice(0, 3);
                 setRecentMedicines(sorted);
-
-                // Count today's dispenses
-                const today = new Date().toDateString();
-                const todayDispenses = medicineList.filter(med =>
-                    med.dispensedAt && new Date(med.dispensedAt).toDateString() === today
-                ).length;
-
-                setStats(prev => ({
-                    ...prev,
-                    todayDispenses
-                }));
             } else {
                 setStats(prev => ({ ...prev, totalMedicines: 0, todayDispenses: 0 }));
             }

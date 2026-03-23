@@ -131,7 +131,7 @@ export default function Alerts({ user }) {
                         style={caregiverStyles.dismissButton}
                         onPress={() => dismissAlert(item.id, item.patientId)}
                     >
-                        <Ionicons name="checkmark" size={20} color="#fff" />
+                        <Ionicons name="checkmark" size={20} color="#2ed573" />
                     </TouchableOpacity>
                 </View>
             ))}

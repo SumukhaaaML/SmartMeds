@@ -8,6 +8,7 @@ import logging
 import speech_recognition as sr
 import tempfile
 import subprocess
+from datetime import datetime
 from nlp_utils import find_closest_medicine, extract_dosage
 from validators import validate_uid
 
@@ -94,10 +95,9 @@ app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_SIZE_MB", "15")) * 
 
 # SECURITY CONFIGURATION
 
-
 # CORS - Restrict to specific origins
 ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:19006').split(',')
-CORS(app, 
+CORS(app,
      resources={r"/*": {"origins": ALLOWED_ORIGINS}},
      supports_credentials=True,
      allow_headers=["Content-Type", "Authorization"],
@@ -116,17 +116,13 @@ limiter = Limiter(
 def add_security_headers(response):
     """Add security headers to all responses"""
     response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['X-Content-Type-Options'] = 'nosniff'  
+    response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     if IS_PRODUCTION:
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     response.headers['Content-Security-Policy'] = "default-src 'self'"
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     return response
-
-# ============================================
-# END SECURITY CONFIGURATION
-# ============================================
 
 
 RPI_ENDPOINT = os.getenv("RPI_ENDPOINT", None)
@@ -152,30 +148,183 @@ MEDICINE_LIST = [
     "Disprin"
 ]
 
-def get_patient_medicines(patient_uid):
-    """Fetch medicines from Firestore for a specific patient."""
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers – slots schema
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _day_abbrev():
+    """Return 3-letter lowercase day of week, e.g. 'mon'."""
+    return datetime.now().strftime('%a').lower()
+
+def _today_str():
+    return datetime.now().strftime('%Y-%m-%d')
+
+def _slot_is_today(slot_data):
+    """Check whether a slot is scheduled for today based on dayOfWeek or scheduledDate."""
+    day_of_week = slot_data.get('dayOfWeek')
+    scheduled_date = slot_data.get('scheduledDate')
+    today = _today_str()
+    abbrev = _day_abbrev()
+
+    if scheduled_date:
+        return scheduled_date == today
+    if day_of_week and isinstance(day_of_week, (list, dict)):
+        days = day_of_week if isinstance(day_of_week, list) else list(day_of_week.values())
+        return abbrev in [d.lower() for d in days]
+    # If neither field set, treat as every day
+    return True
+
+def get_patient_medicines_from_slots(patient_uid):
+    """Flatten all medicine names from slots/{uid} for NLP matching."""
     if not FIREBASE_AVAILABLE:
         return MEDICINE_LIST
-    
+
     try:
-        medicines = []
-        medicines_ref = firestore.client().collection("users").document(patient_uid).collection("medicines")
-        docs = medicines_ref.stream()
-        
-        for doc in docs:
-            medicine_data = doc.to_dict()
-            if medicine_data and 'name' in medicine_data:
-                medicines.append(medicine_data['name'])
-        
-        if medicines:
-            logger.info("Loaded %s medicines from Firebase for patient %s", len(medicines), patient_uid)
-            return medicines
-        else:
-            logger.warning("No medicines found in Firebase, using default list")
-            return MEDICINE_LIST
-    except Exception as e:
-        logger.warning("Failed to fetch medicines from Firebase: %s", e)
+        slots_ref = db.reference(f'slots/{patient_uid}')
+        slots_data = slots_ref.get()
+        medicine_names = []
+        if slots_data:
+            for slot_id, slot in slots_data.items():
+                meds = slot.get('medicines', [])
+                if isinstance(meds, list):
+                    for m in meds:
+                        # Strip dosage suffix like "Paracetamol 500mg" → "Paracetamol"
+                        name = m.split()[0] if m else m
+                        if name and name not in medicine_names:
+                            medicine_names.append(name)
+                        if m and m not in medicine_names:
+                            medicine_names.append(m)
+        if medicine_names:
+            logger.info("Loaded %s medicine names from slots for patient %s", len(medicine_names), patient_uid)
+            return medicine_names
+        logger.warning("No slots found in Firebase, using default medicine list")
         return MEDICINE_LIST
+    except Exception as e:
+        logger.warning("Failed to fetch slots from Firebase: %s", e)
+        return MEDICINE_LIST
+
+
+def get_slots_for_today(patient_uid):
+    """Return list of today's slot dicts from slots/{uid}."""
+    if not FIREBASE_AVAILABLE:
+        return []
+    try:
+        slots_ref = db.reference(f'slots/{patient_uid}')
+        slots_data = slots_ref.get()
+        if not slots_data:
+            return []
+        result = []
+        for slot_id, slot in slots_data.items():
+            if _slot_is_today(slot):
+                result.append({'id': slot_id, **slot})
+        result.sort(key=lambda s: s.get('scheduledTime', ''))
+        return result
+    except Exception as e:
+        logger.warning("Error fetching today's slots: %s", e)
+        return []
+
+
+def _mark_slot_dispensed(patient_uid, slot_id, notes=None):
+    """Set status=ready_to_dispense + dispense=True so Raspberry Pi picks it up."""
+    slot_ref = db.reference(f'slots/{patient_uid}/{slot_id}')
+    update = {
+        'status': 'ready_to_dispense',
+        'dispense': True,
+        'requestedAt': datetime.now().isoformat(),
+    }
+    if notes:
+        update['notes'] = notes
+    slot_ref.update(update)
+    # Decrement stock for each medicine in the slot
+    _decrement_stock_for_slot(patient_uid, slot_id)
+
+
+
+def _mark_slot_completed(patient_uid, slot_id):
+    """Called after Raspberry Pi physically dispenses the medicines.
+    Sets status=dispensed, dispense=False — resets slot for the next scheduled cycle."""
+    slot_ref = db.reference(f'slots/{patient_uid}/{slot_id}')
+    slot_ref.update({
+        'status': 'dispensed',
+        'dispense': False,
+        'dispensedAt': datetime.now().isoformat(),
+    })
+    # Notify caregivers that patient took medicine
+    _notify_caregivers_of_slot(patient_uid, slot_id, event='taken')
+
+
+def _notify_caregivers_of_slot(patient_uid, slot_id, event='taken'):
+    """Write an alert entry for every caregiver linked to this patient.
+    event: 'taken' | 'missed'
+    """
+    try:
+        slot_data = db.reference(f'slots/{patient_uid}/{slot_id}').get() or {}
+        medicines = ', '.join(slot_data.get('medicines', [])) or 'medicine'
+        time_slot = slot_data.get('timeSlot', slot_data.get('scheduledTime', ''))
+
+        if event == 'taken':
+            title = '✅ Medicine Taken'
+            body = f"Patient took {time_slot} medicine: {medicines}"
+            type_key = 'dose_taken'
+        else:
+            title = '⚠️ Missed Dose'
+            body = f"Patient MISSED their {time_slot} medicine: {medicines}"
+            type_key = 'dose_missed'
+
+        # Find all caregivers for this patient
+        caregivers_data = db.reference('caregivers').get() or {}
+        for cg_uid, cg_info in caregivers_data.items():
+            patients = cg_info.get('patients', {})
+            if patient_uid in patients:
+                _write_caregiver_alert(cg_uid, {
+                    'title': title,
+                    'body': body,
+                    'type': type_key,
+                    'patientUid': patient_uid,
+                    'slotId': slot_id,
+                    'timeSlot': time_slot,
+                    'medicines': slot_data.get('medicines', []),
+                    'createdAt': datetime.now().isoformat(),
+                    'read': False,
+                })
+    except Exception as e:
+        logger.warning('_notify_caregivers_of_slot error: %s', e)
+
+
+def _write_caregiver_alert(caregiver_uid, alert_data):
+    """Push an alert entry under /alerts/{caregiverUid} in Firebase."""
+    alert_ref = db.reference(f'alerts/{caregiver_uid}')
+    alert_ref.push(alert_data)
+    logger.info('Alert written for caregiver %s: %s', caregiver_uid, alert_data.get('title'))
+
+
+
+def _decrement_stock_for_slot(patient_uid, slot_id):
+    """Decrement medicineStock quantities for all medicines in a slot."""
+    try:
+        slot_data = db.reference(f'slots/{patient_uid}/{slot_id}').get()
+        if not slot_data:
+            return
+        meds_in_slot = slot_data.get('medicines', [])
+        stock_data = db.reference(f'medicineStock/{patient_uid}').get()
+        if not stock_data:
+            return
+        for med_entry in meds_in_slot:
+            # Match by first word (name without dosage)
+            med_name_key = med_entry.split()[0].lower() if med_entry else ''
+            for stock_id, stock in stock_data.items():
+                if stock.get('name', '').lower() == med_name_key:
+                    new_qty = max(0, stock.get('quantity', 0) - 1)
+                    is_low = new_qty <= stock.get('reorderLevel', 10)
+                    db.reference(f'medicineStock/{patient_uid}/{stock_id}').update({
+                        'quantity': new_qty,
+                        'low_stock_alert': is_low
+                    })
+                    if is_low:
+                        logger.warning("Low stock for %s (qty: %s)", stock.get('name'), new_qty)
+                    break
+    except Exception as e:
+        logger.warning("Error decrementing stock: %s", e)
 
 
 def require_api_key():
@@ -224,24 +373,25 @@ def ready():
         "audio_conversion": PYDUB_AVAILABLE or FFMPEG_AVAILABLE
     }), 200
 
-# find_closest_medicine and extract_dosage are provided by backend/nlp_utils.py
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Audio / NLP
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/process_audio", methods=["POST"])
 def process_audio():
-    """Process audio and detect medicine. Optionally use patient-specific medicines from Firebase."""
-    
-    # Get patient UID from query params (optional)
+    """Process audio and detect medicine/command using the slots schema."""
+
     patient_uid = request.args.get('patient_uid')
     if patient_uid and not validate_uid(patient_uid):
         return jsonify({"error": "invalid patient_uid"}), 400
-    
-    # Get medicines list (patient-specific if UID provided, otherwise default)
+
+    # Build medicine name list from slots
     if patient_uid and FIREBASE_AVAILABLE:
-        medicines = get_patient_medicines(patient_uid)
+        medicines = get_patient_medicines_from_slots(patient_uid)
     else:
         medicines = MEDICINE_LIST
-    
+
     if 'audio' not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
 
@@ -259,7 +409,6 @@ def process_audio():
         if orig_suffix.lower().endswith('.wav'):
             wav_path = temp_input_path
         else:
-            # Try to convert with pydub if available
             if PYDUB_AVAILABLE:
                 try:
                     audio = AudioSegment.from_file(temp_input_path)
@@ -267,7 +416,6 @@ def process_audio():
                         audio.export(temp_wav.name, format="wav")
                         wav_path = temp_wav.name
                 except Exception as e:
-                    # conversion failed, try ffmpeg next
                     if FFMPEG_AVAILABLE:
                         try:
                             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
@@ -283,7 +431,6 @@ def process_audio():
                     else:
                         return jsonify({"error": "Audio conversion failed. Install ffmpeg to support mobile formats."}), 400
             elif FFMPEG_AVAILABLE:
-                # Try ffmpeg via subprocess if pydub not available
                 try:
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
                         subprocess.run([
@@ -302,51 +449,57 @@ def process_audio():
         with sr.AudioFile(wav_path) as source:
             audio_data = recognizer.record(source)
             text = recognizer.recognize_google(audio_data)
-            
-            # Check if it's a batch command (e.g., "dispense today's medicines" or "morning medicine")
-            from nlp_utils import detect_batch_command, extract_time_category, extract_medicine_number, resolve_medicine_number
+
+            from nlp_utils import detect_batch_command, extract_time_category, extract_medicine_number
+
+            # ── BATCH / TIME COMMANDS ──────────────────────────────────────
             if detect_batch_command(text):
-                # Check if it's a time-based command
                 time_category = extract_time_category(text)
-                if time_category:
+
+                if time_category and patient_uid and FIREBASE_AVAILABLE:
+                    # Auto-dispense all slots for this time category
+                    dispensed = _dispense_slots_by_time(patient_uid, time_category)
+                    return jsonify({
+                        "text": text,
+                        "batch_command": True,
+                        "time_category": time_category,
+                        "auto_dispensed": True,
+                        "dispensed_count": len(dispensed),
+                        "dispensed_slots": dispensed,
+                        "status": "success"
+                    })
+                else:
                     return jsonify({
                         "text": text,
                         "batch_command": True,
                         "time_category": time_category,
                         "status": "success"
                     })
-                else:
-                    return jsonify({
-                        "text": text,
-                        "batch_command": True,
-                        "status": "success"
-                    })
-            
-            # Check if it's a medicine number (e.g., "medicine 3", "number 5")
+
+            # ── MEDICINE NUMBER REFERENCE ──────────────────────────────────
             medicine_number = extract_medicine_number(text)
             if medicine_number and patient_uid and FIREBASE_AVAILABLE:
-                # Resolve medicine number to actual medicine
-                medicine_info = resolve_medicine_number(medicine_number, patient_uid)
-                if medicine_info:
-                    dosage = extract_dosage(text) or medicine_info.get('dosage', '')
+                slot_info = _resolve_slot_by_number(medicine_number, patient_uid)
+                if slot_info:
+                    dosage = extract_dosage(text) or ''
                     return jsonify({
                         "text": text,
-                        "medicine_name": medicine_info['name'],
-                        "medicine_number": medicine_number,
+                        "slot_number": medicine_number,
+                        "medicines": slot_info.get('medicines', []),
                         "dosage": dosage,
-                        "slot": medicine_info.get('slot'),
+                        "notes": slot_info.get('notes', ''),
+                        "scheduled_time": slot_info.get('scheduledTime', ''),
                         "status": "success"
                     })
                 else:
                     return jsonify({
                         "text": text,
-                        "medicine_number": medicine_number,
-                        "medicine_name": None,
+                        "slot_number": medicine_number,
                         "status": "not_found",
-                        "message": f"Medicine #{medicine_number} not found in your list"
+                        "message": f"Slot #{medicine_number} not found in your schedule"
                     })
-            
-            # Try to find medicine by name (existing logic)
+
+            # ── MEDICINE NAME MATCH ────────────────────────────────────────
             medicine_name = find_closest_medicine(text, medicines)
             dosage = extract_dosage(text)
             if medicine_name:
@@ -364,6 +517,7 @@ def process_audio():
                     "status": "not_found",
                     "message": "No matching medicine found"
                 })
+
     except sr.UnknownValueError:
         return jsonify({"error": "Could not understand audio"}), 400
     except sr.RequestError:
@@ -377,66 +531,157 @@ def process_audio():
                     logger.warning("Failed to remove temp file: %s", path)
 
 
-@app.route("/get_todays_medicines", methods=["GET"])
-def get_todays_medicines():
-    """Fetch all medicines scheduled for today for a specific patient."""
+# ─────────────────────────────────────────────────────────────────────────────
+# Slots – read
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/get_todays_slots", methods=["GET"])
+def get_todays_slots():
+    """Return all slots scheduled for today for a specific patient."""
     patient_uid = request.args.get('patient_uid')
-    
     if not patient_uid:
         return jsonify({"error": "patient_uid is required"}), 400
     if not validate_uid(patient_uid):
         return jsonify({"error": "invalid patient_uid"}), 400
-    
     if not FIREBASE_AVAILABLE:
         return jsonify({"error": "Firebase not available"}), 503
-    
-    try:
-        from datetime import datetime
-        current_hour = int(datetime.now().strftime("%H"))
-        
-        medicines = []
-        medicines_ref = db.reference(f'medicines/{patient_uid}')
-        medicines_data = medicines_ref.get()
-        
-        if medicines_data:
-            for med_id, medicine_data in medicines_data.items():
-                scheduled_time = medicine_data.get('scheduledTime', '')
-                
-                # If medicine has a scheduled time for today, include it
-                if scheduled_time:
-                    try:
-                        scheduled_hour = int(scheduled_time.split(':')[0])
-                        # Include medicines scheduled for current hour or earlier today
-                        if scheduled_hour <= current_hour:
-                            medicines.append({
-                                'name': medicine_data.get('name'),
-                                'dosage': medicine_data.get('dosage', 'As prescribed'),
-                                'scheduledTime': scheduled_time
-                            })
-                    except:
-                        pass
-        
-        return jsonify({
-            "medicines": medicines,
-            "count": len(medicines),
-            "status": "success"
-        })
-    except Exception as e:
-        logger.warning("Failed to fetch today's medicines: %s", e)
-        return jsonify({"error": "Failed to fetch medicines"}), 500
 
+    slots = get_slots_for_today(patient_uid)
+    return jsonify({
+        "slots": slots,
+        "count": len(slots),
+        "date": _today_str(),
+        "status": "success"
+    })
+
+
+# Keep legacy endpoint for backward compat
+@app.route("/get_todays_medicines", methods=["GET"])
+def get_todays_medicines():
+    """Legacy: proxies to get_todays_slots, flattened to a medicine list."""
+    patient_uid = request.args.get('patient_uid')
+    if not patient_uid:
+        return jsonify({"error": "patient_uid is required"}), 400
+    if not validate_uid(patient_uid):
+        return jsonify({"error": "invalid patient_uid"}), 400
+    if not FIREBASE_AVAILABLE:
+        return jsonify({"error": "Firebase not available"}), 503
+
+    slots = get_slots_for_today(patient_uid)
+    medicines = []
+    for slot in slots:
+        for med in slot.get('medicines', []):
+            medicines.append({
+                'name': med,
+                'scheduledTime': slot.get('scheduledTime', ''),
+                'slotNumber': slot.get('slotNumber'),
+                'notes': slot.get('notes', ''),
+                'status': slot.get('status', 'pending')
+            })
+    return jsonify({"medicines": medicines, "count": len(medicines), "status": "success"})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Slots – dispense helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _dispense_slots_by_time(patient_uid, time_category, notes=""):
+    """Dispense all today's slots matching time_category.
+    Matches by 'timeSlot' field first (set by new MedicineManager),
+    falls back to hour-range for legacy slots.
+    Returns list of dispensed slot summaries."""
+    TIME_RANGES = {
+        'morning':   (5, 12),
+        'afternoon': (12, 17),
+        'evening':   (17, 21),
+        'night':     (21, 5),
+    }
+    slots = get_slots_for_today(patient_uid)
+    dispensed = []
+    for slot in slots:
+        # Skip already dispensed / in-progress
+        if slot.get('status') in ('dispensed', 'ready_to_dispense'):
+            continue
+
+        # Primary match: exact timeSlot field
+        matched = slot.get('timeSlot', '').lower() == time_category
+
+        # Fallback: match by hour range (legacy slots without timeSlot)
+        if not matched:
+            sched = slot.get('scheduledTime', '')
+            try:
+                hour = int(sched.split(':')[0])
+                lo, hi = TIME_RANGES.get(time_category, (0, 24))
+                matched = (lo <= hour < hi) if lo < hi else (hour >= lo or hour < hi)
+            except Exception:
+                matched = False
+
+        if matched:
+            slot_notes = notes or f"Voice command: dispense {time_category} medicines"
+            _mark_slot_dispensed(patient_uid, slot['id'], notes=slot_notes)
+            dispensed.append({
+                'slot_id': slot['id'],
+                'timeSlot': slot.get('timeSlot', time_category),
+                'medicines': slot.get('medicines', []),
+                'name': ', '.join(slot.get('medicines', [])),
+                'scheduledTime': slot.get('scheduledTime', ''),
+                'notes': slot.get('notes', '')
+            })
+    return dispensed
+
+
+def _dispense_all_today_slots(patient_uid, notes=""):
+    """Dispense ALL of today's pending slots (no time filter).
+    Used for generic 'dispense' voice commands with no time category.
+    Returns list of dispensed slot summaries."""
+    slots = get_slots_for_today(patient_uid)
+    dispensed = []
+    for slot in slots:
+        if slot.get('status') not in ('dispensed', 'ready_to_dispense'):
+            slot_notes = notes or "Auto-dispensed via voice command: dispense all medicines"
+            _mark_slot_dispensed(patient_uid, slot['id'], notes=slot_notes)
+            dispensed.append({
+                'slot_id': slot['id'],
+                'slotNumber': slot.get('slotNumber'),
+                'medicines': slot.get('medicines', []),
+                'name': ', '.join(slot.get('medicines', [])),
+                'scheduledTime': slot.get('scheduledTime', ''),
+                'notes': slot.get('notes', '')
+            })
+    return dispensed
+
+
+
+def _resolve_slot_by_number(slot_number, patient_uid):
+    """Find slot data by slotNumber field."""
+    try:
+        slots_data = db.reference(f'slots/{patient_uid}').get()
+        if not slots_data:
+            return None
+        for slot_id, slot in slots_data.items():
+            if slot.get('slotNumber') == slot_number:
+                return {'id': slot_id, **slot}
+        return None
+    except Exception as e:
+        logger.warning("Error resolving slot number: %s", e)
+        return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Slots – dispense endpoints
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/send_instruction", methods=["POST"])
 def send_instruction():
-    """Update medicine status in Firebase for Raspberry Pi to monitor and dispense.
-    
-    Expected JSON body: {
-        "medicine_name": "Paracetamol",  # OR
-        "medicine_number": 3,             # Medicine number (1-8)
-        "patient_uid": "abc123",
-        "dosage": "500 mg", 
-        "action": "dispense"
-    }
+    """Mark a slot as ready_to_dispense in Firebase.
+
+    Accepts:
+      medicine_name   – matched against slot.medicines[]
+      slot_number     – direct slot number
+      patient_uid     – required
+      dosage          – optional
+      notes           – optional free-text notes written to DB
+      action          – 'dispense' (default)
     """
     auth_error = require_api_key()
     if auth_error:
@@ -444,168 +689,286 @@ def send_instruction():
 
     data = request.get_json() or {}
     medicine_name = data.get("medicine_name")
-    medicine_number = data.get("medicine_number")
+    slot_number = data.get("medicine_number") or data.get("slot_number")
     patient_uid = data.get("patient_uid")
-    dosage = data.get("dosage")
-    action = data.get("action", "dispense")
-    
+    dosage = data.get("dosage", "")
+    notes = data.get("notes", "")
+
     if not patient_uid:
         return jsonify({"error": "patient_uid is required"}), 400
     if not validate_uid(patient_uid):
         return jsonify({"error": "invalid patient_uid"}), 400
-
     if not FIREBASE_AVAILABLE:
         return jsonify({"error": "Firebase not available"}), 503
-    
-    # If medicine_number is provided, resolve it to medicine_name
-    if medicine_number and not medicine_name:
-        from nlp_utils import resolve_medicine_number
-        medicine_info = resolve_medicine_number(medicine_number, patient_uid)
-        if medicine_info:
-            medicine_name = medicine_info['name']
-            logger.info("Resolved medicine #%s to %s", medicine_number, medicine_name)
-        else:
-            return jsonify({"error": f"Medicine #{medicine_number} not found for patient"}), 404
-
-    if not medicine_name:
-        return jsonify({"error": "medicine_name or medicine_number is required"}), 400
 
     try:
-        # Find medicine in Firebase by name
-        medicines_ref = db.reference(f'medicines/{patient_uid}')
-        medicines_data = medicines_ref.get()
-        
-        if not medicines_data:
-            return jsonify({"error": f"No medicines found for patient {patient_uid}"}), 404
-        
-        medicine_id = None
-        medicine_slot = None
-        medicine_num = None
-        for med_id, med_data in medicines_data.items():
-            if med_data.get('name') == medicine_name:
-                medicine_id = med_id
-                medicine_slot = med_data.get('slot')
-                medicine_num = med_data.get('medicineNumber') or med_data.get('slot')
-                break
-        
-        if not medicine_id:
-            return jsonify({"error": f"Medicine '{medicine_name}' not found for patient"}), 404
-        
-        # Update status to ready_to_dispense and mark as dispensed
-        from datetime import datetime
-        medicine_ref = db.reference(f'medicines/{patient_uid}/{medicine_id}')
-        medicine_ref.update({
-            'status': 'ready_to_dispense',
-            'requestedAt': datetime.now().isoformat(),
-            'dispensedAt': datetime.now().isoformat()  # Add this to update the counter
-        })
-        
+        slots_data = db.reference(f'slots/{patient_uid}').get()
+        if not slots_data:
+            return jsonify({"error": f"No slots found for patient {patient_uid}"}), 404
+
+        target_slot = None
+        target_slot_id = None
+
+        # Priority 1: by slot number
+        if slot_number is not None:
+            for sid, slot in slots_data.items():
+                if slot.get('slotNumber') == int(slot_number):
+                    target_slot = slot
+                    target_slot_id = sid
+                    break
+
+        # Priority 2: by medicine name in slot.medicines[]
+        if not target_slot_id and medicine_name:
+            med_lower = medicine_name.lower()
+            for sid, slot in slots_data.items():
+                for m in slot.get('medicines', []):
+                    if med_lower in m.lower():
+                        target_slot = slot
+                        target_slot_id = sid
+                        break
+                if target_slot_id:
+                    break
+
+        if not target_slot_id:
+            return jsonify({"error": f"No matching slot found for patient"}), 404
+
+        # Build notes string (merge existing notes + new notes/dosage info)
+        existing_notes = target_slot.get('notes', '')
+        full_notes = existing_notes
+        if dosage:
+            full_notes = f"{full_notes} | Dosage: {dosage}".strip(' |')
+        if notes:
+            full_notes = f"{full_notes} | {notes}".strip(' |')
+
+        _mark_slot_dispensed(patient_uid, target_slot_id, notes=full_notes if full_notes else None)
+
         logger.info(
-            "Updated %s (slot %s, #%s) to ready_to_dispense for patient %s",
-            medicine_name, medicine_slot, medicine_num, patient_uid
+            "Slot %s (slotNumber %s) → ready_to_dispense for patient %s",
+            target_slot_id, target_slot.get('slotNumber'), patient_uid
         )
-        
+
         return jsonify({
             "status": "success",
-            "message": f"{medicine_name} marked ready to dispense",
-            "medicine_id": medicine_id,
-            "medicine_number": medicine_num,
-            "slot": medicine_slot,
+            "message": f"Slot {target_slot.get('slotNumber')} marked ready to dispense",
+            "slot_id": target_slot_id,
+            "slot_number": target_slot.get('slotNumber'),
+            "medicines": target_slot.get('medicines', []),
+            "notes": full_notes,
             "patient_uid": patient_uid
         })
-    
+
     except Exception as e:
-        logger.error("Error updating medicine status: %s", e)
-        return jsonify({"error": "Failed to update medicine status"}), 500
+        logger.error("Error updating slot status: %s", e)
+        return jsonify({"error": "Failed to update slot status"}), 500
 
 
 @app.route("/dispense_by_time", methods=["POST"])
 def dispense_by_time():
-    """Mark all medicines for a specific time category as ready to dispense.
-    
-    Expected JSON body: {
-        "time": "morning",  # morning, afternoon, evening, night
-        "patient_uid": "abc123"
-    }
+    """Voice-triggered: mark all today's slots (optionally filtered by time category) as ready_to_dispense.
+
+    Body: { "time": "morning" (optional), "patient_uid": "abc123", "notes": "optional" }
+    If 'time' is omitted, ALL of today's pending slots are dispensed.
     """
     auth_error = require_api_key()
     if auth_error:
         return auth_error
 
     data = request.get_json() or {}
-    time_category = data.get("time")
+    time_category = data.get("time", "").lower().strip()
     patient_uid = data.get("patient_uid")
-    
-    if not time_category:
-        return jsonify({"error": "time is required (morning/afternoon/evening/night)"}), 400
-    
+    notes = data.get("notes", "")
+
     if not patient_uid:
         return jsonify({"error": "patient_uid is required"}), 400
     if not validate_uid(patient_uid):
         return jsonify({"error": "invalid patient_uid"}), 400
-    
-    if time_category not in ['morning', 'afternoon', 'evening', 'night']:
+    if time_category and time_category not in ('morning', 'afternoon', 'evening', 'night'):
         return jsonify({"error": "time must be morning, afternoon, evening, or night"}), 400
-    
     if not FIREBASE_AVAILABLE:
         return jsonify({"error": "Firebase not available"}), 503
-    
-    try:
-        from datetime import datetime
-        
-        # Find all medicines for this time category
-        medicines_ref = db.reference(f'medicines/{patient_uid}')
-        medicines_data = medicines_ref.get()
-        
-        if not medicines_data:
-            return jsonify({"error": f"No medicines found for patient {patient_uid}"}), 404
-        
-        updated_count = 0
-        updated_medicines = []
-        
-        for med_id, med_data in medicines_data.items():
-            if med_data.get('time') == time_category and med_data.get('dispense') == True:
-                # Update status and mark as dispensed
-                medicine_ref = db.reference(f'medicines/{patient_uid}/{med_id}')
-                medicine_ref.update({
-                    'status': 'ready_to_dispense',
-                    'requestedAt': datetime.now().isoformat(),
-                    'dispensedAt': datetime.now().isoformat()
-                })
-                
-                updated_count += 1
-                updated_medicines.append({
-                    'name': med_data.get('name'),
-                    'slot': med_data.get('slot'),
-                    'dosage': med_data.get('dosage', '')
-                })
-        
-        if updated_count == 0:
-            return jsonify({
-                "status": "success",
-                "message": f"No {time_category} medicines with auto-dispense enabled",
-                "count": 0,
-                "medicines": []
-            })
-        
-        logger.info(
-            "Marked %s %s medicines ready to dispense for patient %s",
-            updated_count, time_category, patient_uid
-        )
-        
+
+    if time_category:
+        dispensed = _dispense_slots_by_time(patient_uid, time_category, notes=notes)
+        label = time_category
+    else:
+        # No time category — dispense ALL of today's pending slots
+        dispensed = _dispense_all_today_slots(patient_uid, notes=notes)
+        label = "all"
+
+    if not dispensed:
         return jsonify({
             "status": "success",
-            "message": f"Marked {updated_count} {time_category} medicine(s) ready to dispense",
-            "medicines": updated_medicines,
-            "count": updated_count
+            "message": f"No pending {label} slots found or auto-dispense is off",
+            "count": 0,
+            "medicines": []
         })
-    
+
+    logger.info("Dispensed %s %s slots for patient %s", len(dispensed), label, patient_uid)
+    return jsonify({
+        "status": "success",
+        "message": f"Marked {len(dispensed)} slot(s) ready to dispense",
+        "slots": dispensed,
+        "count": len(dispensed),
+        "medicines": dispensed
+    })
+
+
+@app.route("/confirm_dispensed", methods=["POST"])
+def confirm_dispensed():
+    """Called by Raspberry Pi AFTER it physically dispenses the medicines for a slot.
+    Sets status=dispensed + dispense=False — resets slot for the next scheduled cycle.
+
+    Body: { "patient_uid": "...", "slot_id": "..." }
+    """
+    auth_error = require_api_key()
+    if auth_error:
+        return auth_error
+
+    data = request.get_json() or {}
+    patient_uid = data.get("patient_uid")
+    slot_id = data.get("slot_id")
+
+    if not patient_uid or not slot_id:
+        return jsonify({"error": "patient_uid and slot_id are required"}), 400
+    if not validate_uid(patient_uid):
+        return jsonify({"error": "invalid patient_uid"}), 400
+    if not FIREBASE_AVAILABLE:
+        return jsonify({"error": "Firebase not available"}), 503
+
+    try:
+        _mark_slot_completed(patient_uid, slot_id)
+        logger.info("Slot %s confirmed dispensed for patient %s", slot_id, patient_uid)
+        return jsonify({
+            "status": "success",
+            "message": f"Slot {slot_id} marked as dispensed",
+            "slot_id": slot_id,
+            "patient_uid": patient_uid
+        })
     except Exception as e:
-        logger.error("Error updating medicines by time: %s", e)
-        return jsonify({"error": "Failed to update medicines"}), 500
+        logger.error("confirm_dispensed error: %s", e)
+        return jsonify({"error": "Failed to confirm dispensed"}), 500
 
 
-# Import and start scheduler
+# ─────────────────────────────────────────────────────────────────────────────
+# Device endpoints (Raspberry Pi telemetry)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/check_missed_doses", methods=["POST"])
+def check_missed_doses():
+    """Check all patients for overdue pending slots and mark them as missed.
+    Writes caregiver alerts for any missed dose.
+    Call this from Raspberry Pi on a schedule (e.g. every 30 min).
+
+    Body: { "patient_uid": "..." }  OR  no body to check ALL patients.
+    """
+    auth_error = require_api_key()
+    if auth_error:
+        return auth_error
+    if not FIREBASE_AVAILABLE:
+        return jsonify({"error": "Firebase not available"}), 503
+
+    data = request.get_json() or {}
+    patient_uid = data.get("patient_uid")
+
+    try:
+        now = datetime.now()
+        now_minutes = now.hour * 60 + now.minute
+        missed_count = 0
+
+        patients_to_check = [patient_uid] if patient_uid else []
+        if not patients_to_check:
+            # Load all patients from all caregivers
+            caregivers_data = db.reference('caregivers').get() or {}
+            seen = set()
+            for cg_info in caregivers_data.values():
+                for pid in (cg_info.get('patients') or {}).keys():
+                    if pid not in seen:
+                        patients_to_check.append(pid)
+                        seen.add(pid)
+
+        for pid in patients_to_check:
+            slots = get_slots_for_today(pid)
+            for slot in slots:
+                if slot.get('status') != 'pending':
+                    continue
+                sched = slot.get('scheduledTime', '')
+                try:
+                    h, m = map(int, sched.split(':'))
+                    slot_minutes = h * 60 + m
+                except Exception:
+                    continue
+                # Mark missed if more than 30 minutes past the scheduled time
+                if now_minutes - slot_minutes > 30:
+                    db.reference(f'slots/{pid}/{slot["id"]}').update({
+                        'status': 'missed',
+                        'missedAt': datetime.now().isoformat(),
+                    })
+                    _notify_caregivers_of_slot(pid, slot['id'], event='missed')
+                    missed_count += 1
+                    logger.info("Slot %s marked missed for patient %s", slot['id'], pid)
+
+        return jsonify({"status": "success", "missed": missed_count})
+    except Exception as e:
+        logger.error("check_missed_doses error: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/device_status/<device_id>", methods=["GET"])
+def device_status(device_id):
+    """Return telemetry + alerts for a given device id."""
+    if not FIREBASE_AVAILABLE:
+        return jsonify({"error": "Firebase not available"}), 503
+
+    try:
+        device_data = db.reference(f'devices/{device_id}').get()
+        if not device_data:
+            return jsonify({"error": f"Device {device_id} not found"}), 404
+        return jsonify({"status": "success", "device_id": device_id, "data": device_data})
+    except Exception as e:
+        logger.error("Error fetching device status: %s", e)
+        return jsonify({"error": "Failed to fetch device status"}), 500
+
+
+@app.route("/device_alert/<device_id>", methods=["POST"])
+def device_alert(device_id):
+    """Raspberry Pi posts its telemetry/alerts here.
+
+    Body can contain any subset of the device schema:
+    { "telemetry": {...}, "alerts": {...}, "system_halt": false }
+    """
+    if not FIREBASE_AVAILABLE:
+        return jsonify({"error": "Firebase not available"}), 503
+
+    payload = request.get_json() or {}
+    if not payload:
+        return jsonify({"error": "Empty payload"}), 400
+
+    try:
+        device_ref = db.reference(f'devices/{device_id}')
+        existing = device_ref.get() or {}
+
+        update = {}
+        if 'telemetry' in payload:
+            telem = payload['telemetry']
+            telem['reported_at'] = datetime.now().isoformat()
+            update['telemetry'] = {**existing.get('telemetry', {}), **telem}
+        if 'alerts' in payload:
+            update['alerts'] = {**existing.get('alerts', {}), **payload['alerts']}
+        if 'system_halt' in payload:
+            update['system_halt'] = payload['system_halt']
+
+        device_ref.update(update)
+        logger.info("Device %s telemetry updated", device_id)
+        return jsonify({"status": "success", "device_id": device_id})
+    except Exception as e:
+        logger.error("Error updating device alert: %s", e)
+        return jsonify({"error": "Failed to update device"}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Scheduler startup
+# ─────────────────────────────────────────────────────────────────────────────
+
 if ENABLE_SCHEDULER:
     try:
         from scheduler import start_scheduler

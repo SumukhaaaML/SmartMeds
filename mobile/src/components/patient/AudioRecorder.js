@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { Audio } from 'expo-av';
+import { useAudioRecorder, AudioModule, RecordingPresets } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,43 +9,20 @@ import { patientStyles } from './styles/patient.styles';
 import { sendLocalNotification } from '../../services/NotificationService';
 
 export default function AudioRecorder({ user, onDetection }) {
-    const recordingRef = useRef(null);
+    const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
     const [isRecording, setIsRecording] = useState(false);
     const [processing, setProcessing] = useState(false);
     const [transcript, setTranscript] = useState('');
 
-    // Cleanup recording on component unmount
-    useEffect(() => {
-        return () => {
-            if (recordingRef.current) {
-                recordingRef.current.stopAndUnloadAsync().catch(e => {
-                    console.log('Error cleaning up recording on unmount:', e);
-                });
-            }
-        };
-    }, []);
-
     async function startRecording() {
         try {
-            // Clean up any existing recording object first
-            if (recordingRef.current) {
-                try {
-                    await recordingRef.current.stopAndUnloadAsync();
-                } catch (e) {
-                    console.log('Error cleaning up previous recording:', e);
-                }
-                recordingRef.current = null;
-            }
-
-            const { granted } = await Audio.requestPermissionsAsync();
+            const { granted } = await AudioModule.requestRecordingPermissionsAsync();
             if (!granted) {
                 Alert.alert('Permission required', 'Microphone permission is required to record.');
                 return;
             }
-            const rec = new Audio.Recording();
-            await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-            await rec.startAsync();
-            recordingRef.current = rec;
+            await audioRecorder.prepareToRecordAsync();
+            audioRecorder.record();
             setIsRecording(true);
             setTranscript('');
         } catch (err) {
@@ -56,11 +33,10 @@ export default function AudioRecorder({ user, onDetection }) {
 
     async function stopRecording() {
         try {
-            if (!recordingRef.current) return;
+            if (!audioRecorder.isRecording) return;
             setIsRecording(false);
-            await recordingRef.current.stopAndUnloadAsync();
-            const uri = recordingRef.current.getURI();
-            recordingRef.current = null;
+            await audioRecorder.stop();
+            const uri = audioRecorder.uri;
             await processAndUpload(uri);
         } catch (err) {
             console.error('stopRecording error', err);
@@ -89,57 +65,34 @@ export default function AudioRecorder({ user, onDetection }) {
             try { data = JSON.parse(text); } catch (e) { data = { error: text }; }
 
             if (resp.ok) {
-                setTranscript(data.text || '');
+                const transcriptText = data.text || '';
+                setTranscript(transcriptText);
 
-                // Handle time-based batch command
+                // ── BRANCH 1: time-based batch ("dispense morning medicines") ──
                 if (data.batch_command && data.time_category) {
-                    const timeCategory = data.time_category;
-                    try {
-                        const dispenseResp = await fetch(API_ENDPOINTS.DISPENSE_BY_TIME, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                time: timeCategory,
-                                patient_uid: user.uid
-                            })
-                        });
-                        const dispenseData = await dispenseResp.json();
+                    await handleBatchDispense(data.time_category);
 
-                        if (dispenseResp.ok) {
-                            const count = dispenseData.count || 0;
-                            const medicines = dispenseData.medicines || [];
-                            if (count > 0) {
-                                const medNames = medicines.map(m => m.name).join(', ');
-                                Alert.alert(
-                                    'Batch Dispensing',
-                                    `Dispensing ${count} ${timeCategory} medicine(s): ${medNames}`
-                                );
-                                // Send notification
-                                await sendLocalNotification(
-                                    'Medicines Dispensed',
-                                    `${count} ${timeCategory} medicine(s) dispensed: ${medNames}`
-                                );
-                                onDetection({
-                                    batch_command: true,
-                                    time_category: timeCategory,
-                                    count,
-                                    medicines
-                                });
-                            } else {
-                                Alert.alert('No Medicines', `No ${timeCategory} medicines with auto-dispense enabled`);
-                                onDetection({ medicine_name: null, message: `No ${timeCategory} medicines found` });
-                            }
-                        } else {
-                            Alert.alert('Batch Dispense Failed', dispenseData.error || 'Unknown error');
-                        }
-                    } catch (err) {
-                        console.error('Batch dispense error', err);
-                        Alert.alert('Connection Error', 'Could not dispense medicines');
-                    }
+                // ── BRANCH 2: specific medicine name detected ──────────────────
                 } else if (data.medicine_name) {
                     onDetection(data);
+
+                // ── BRANCH 3: generic "dispense" with no target ────────────────
+                // e.g. "dispense", "give me my medicine", "dispense now"
                 } else {
-                    onDetection({ medicine_name: null, message: 'No matching medicine' });
+                    const lower = transcriptText.toLowerCase();
+                    const isGenericDispense =
+                        lower.includes('dispense') ||
+                        lower.includes('give me') ||
+                        lower.includes('medicine') ||
+                        lower.includes('medikation') ||
+                        data.batch_command; // batch_command but no time category
+
+                    if (isGenericDispense) {
+                        // Dispense ALL of today's pending slots
+                        await handleBatchDispense(null);
+                    } else {
+                        onDetection({ medicine_name: null, message: 'No matching medicine' });
+                    }
                 }
             } else {
                 Alert.alert('Processing failed', data.error || JSON.stringify(data));
@@ -151,6 +104,65 @@ export default function AudioRecorder({ user, onDetection }) {
             setProcessing(false);
         }
     }
+
+    /**
+     * Call /dispense_by_time — if timeCategory is null/undefined, dispenses ALL today's slots.
+     */
+    async function handleBatchDispense(timeCategory) {
+        try {
+            const body = { patient_uid: user.uid };
+            if (timeCategory) body.time = timeCategory;
+
+            const dispenseResp = await fetch(API_ENDPOINTS.DISPENSE_BY_TIME, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const dispenseData = await dispenseResp.json();
+
+            if (dispenseResp.ok) {
+                const count = dispenseData.count || 0;
+                const medicines = dispenseData.medicines || [];
+
+                if (count > 0) {
+                    const medNames = medicines
+                        .flatMap(m => m.medicines || [m.name])
+                        .filter(Boolean)
+                        .join(', ');
+
+                    const label = timeCategory
+                        ? `${timeCategory} medicines`
+                        : 'all today\'s medicines';
+
+                    Alert.alert(
+                        '✅ Dispensing',
+                        `Dispensing ${count} slot(s) — ${medNames}`
+                    );
+                    await sendLocalNotification(
+                        'Medicines Dispensed',
+                        `${count} slot(s) dispensed: ${medNames}`
+                    );
+                    onDetection({
+                        batch_command: true,
+                        time_category: timeCategory || 'all',
+                        auto_dispensed: true,
+                        dispensed_count: count,
+                        medicines
+                    });
+                } else {
+                    const label = timeCategory || 'today';
+                    Alert.alert('No Medicines', `No pending ${label} medicines with auto-dispense enabled`);
+                    onDetection({ medicine_name: null, message: `No pending medicines found` });
+                }
+            } else {
+                Alert.alert('Dispense Failed', dispenseData.error || 'Unknown error');
+            }
+        } catch (err) {
+            console.error('Batch dispense error', err);
+            Alert.alert('Connection Error', 'Could not dispense medicines');
+        }
+    }
+
 
     return (
         <View style={patientStyles.statusCard}>

@@ -176,23 +176,29 @@ def has_existing_missed_alert(patient_uid, medicine_name, scheduled_time):
         return False
 
 
-def mark_medicine_as_missed(patient_uid, medicine_id):
+def mark_slot_as_missed(patient_uid, slot_id):
     """
-    Update medicine status to indicate it was missed.
-    
+    Update slot status to indicate it was missed.
+
     Args:
         patient_uid: Patient UID
-        medicine_id: Medicine ID
+        slot_id: Slot ID under slots/{patient_uid}/{slot_id}
     """
     try:
-        medicine_ref = db.reference(f'medicines/{patient_uid}/{medicine_id}')
-        medicine_ref.update({
+        slot_ref = db.reference(f'slots/{patient_uid}/{slot_id}')
+        slot_ref.update({
             'status': 'missed',
             'missedAt': datetime.now().isoformat()
         })
-        print(f"Marked medicine {medicine_id} as missed for patient {patient_uid}")
+        print(f"Marked slot {slot_id} as missed for patient {patient_uid}")
     except Exception as e:
-        print(f"Error marking medicine as missed: {e}")
+        print(f"Error marking slot as missed: {e}")
+
+
+# Keep legacy alias so old call sites still work
+def mark_medicine_as_missed(patient_uid, medicine_id):
+    """Legacy alias – now writes to slots/ path."""
+    mark_slot_as_missed(patient_uid, medicine_id)
 
 
 __all__ = [
@@ -201,5 +207,6 @@ __all__ = [
     'create_patient_alert',
     'create_caregiver_alert',
     'has_existing_missed_alert',
-    'mark_medicine_as_missed'
+    'mark_slot_as_missed',
+    'mark_medicine_as_missed',
 ]

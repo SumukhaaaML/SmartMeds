@@ -1,7 +1,7 @@
 // app.config.js reads .env at build time via process.env and injects values
 // into Constants.expoConfig.extra for use inside the app.
 // The .env file is gitignored – never commit it.
-require('dotenv').config();
+try { require('dotenv').config(); } catch (_) { /* dotenv not available in this context – env already loaded by shell */ }
 
 module.exports = ({ config }) => ({
   ...config,
@@ -19,6 +19,12 @@ module.exports = ({ config }) => ({
       },
     ],
     'expo-font',
+    [
+      'expo-audio',
+      {
+        microphonePermission: 'Allow SmartMeds to access your microphone for voice commands.',
+      },
+    ],
   ],
   web: { bundler: 'metro' },
   android: {
@@ -36,8 +42,8 @@ module.exports = ({ config }) => ({
     firebaseMeasurementId: process.env.FIREBASE_MEASUREMENT_ID,
     firebaseDatabaseUrl: process.env.FIREBASE_DATABASE_URL,
     eas: {
-      projectId: '14c359f5-a647-4006-a63b-03a2b986caea',
+      projectId: '1fc10644-f7ed-42c6-ad52-4db416b9b9a8',
     },
   },
-  owner: 'sumukha_bhat',
+  owner: 'sumukha_ml',
 });

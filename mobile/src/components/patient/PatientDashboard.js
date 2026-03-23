@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AudioRecorder from './AudioRecorder';
 import MedicineDisplay from './MedicineDisplay';
-import PatientAlerts from './PatientAlerts';
+import MotivationalQuote from './MotivationalQuote';
 import { patientStyles } from './styles/patient.styles';
 
 export default function PatientDashboard({ user, onLogout }) {
@@ -40,7 +40,7 @@ export default function PatientDashboard({ user, onLogout }) {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 20 }}
             >
-                <PatientAlerts user={user} />
+                <MotivationalQuote username={user?.email} />
                 <AudioRecorder user={user} onDetection={handleDetection} />
                 <MedicineDisplay
                     detectedMedicine={detectedMedicine}

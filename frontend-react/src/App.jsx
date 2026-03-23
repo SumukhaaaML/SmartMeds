@@ -43,29 +43,33 @@ export default function App() {
           setLoading(false);
         }, { onlyOnce: true });
 
-        // Load user's medicines from RTDB (if patient) with real-time updates
-        const medicinesRef = ref(rtdb, `medicines/${currentUser.uid}`);
-        onValue(medicinesRef, (snapshot) => {
+        // Load today's slots/medicines from slots/{uid} for patient
+        const slotsRef = ref(rtdb, `slots/${currentUser.uid}`);
+        onValue(slotsRef, (snapshot) => {
           if (snapshot.exists()) {
             const data = snapshot.val();
-            // Convert to array of medicine objects with numbers
-            const meds = Object.keys(data).map(key => ({
-              id: key,
-              name: data[key].name,
-              dosage: data[key].dosage,
-              slot: data[key].slot,
-              medicineNumber: data[key].medicineNumber || data[key].slot,
-              time: data[key].time,
-              scheduledTime: data[key].scheduledTime
-            }));
-            // Sort by medicine number
+            // Flatten slot.medicines[] into a flat list for Home.jsx compatibility
+            const meds = [];
+            Object.keys(data).forEach(slotId => {
+              const slot = data[slotId];
+              (slot.medicines || []).forEach(medName => {
+                meds.push({
+                  id: `${slotId}_${medName}`,
+                  name: medName,
+                  slot: slot.slotNumber,
+                  medicineNumber: slot.slotNumber,
+                  scheduledTime: slot.scheduledTime,
+                  notes: slot.notes || '',
+                });
+              });
+            });
             meds.sort((a, b) => (a.medicineNumber || 999) - (b.medicineNumber || 999));
             setMedicines(meds);
           } else {
             setMedicines([]);
           }
         }, (err) => {
-          console.warn('Failed to load medicines', err);
+          console.warn('Failed to load slots', err);
           setMedicines([]);
         });
       } else {

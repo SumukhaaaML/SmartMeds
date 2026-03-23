@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "SmartMeds",
+    "slug": "smartmeds-mobile",
+    "version": "1.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#4834d4"
+        }
+      ]
+    ],
+    "web": {
+      "bundler": "metro"
+    },
+    "android": {
+      "package": "com.anonymous.smartmedsmobile",
+      "permissions": [
+        "NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.anonymous.smartmedsmobile",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "1fc10644-f7ed-42c6-ad52-4db416b9b9a8"
+      }
+    },
+    "owner": "sumukha_ml"
+  }
+}

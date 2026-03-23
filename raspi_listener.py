@@ -120,87 +120,80 @@ def dispense_from_slot(slot_number, medicine_name):
 
 
 
-def handle_medicine_update(medicine_id, medicine_data):
+def handle_slot_update(slot_id, slot_data):
     """
-    Handle updates to medicine data. Dispense if status is 'ready_to_dispense'.
-    
-    Args:
-        medicine_id (str): Firebase medicine document ID
-        medicine_data (dict): Medicine data from Firebase
+    Handle updates to slot data. Dispense if status is 'ready_to_dispense'.
+    Now reads from slots/{uid} schema.
     """
-    status = medicine_data.get('status')
+    status = slot_data.get('status')
     
     if status == 'ready_to_dispense':
-        slot = medicine_data.get('slot')
-        name = medicine_data.get('name')
-        dosage = medicine_data.get('dosage', '')
+        slot_number = slot_data.get('slotNumber')
+        medicines = slot_data.get('medicines', [])
+        notes = slot_data.get('notes', '')
+        med_label = ', '.join(medicines) if medicines else 'Unknown'
         
         print(f"\n🔔 DISPENSE REQUEST DETECTED")
-        print(f"   Medicine: {name}")
-        print(f"   Slot: {slot}")
-        print(f"   Dosage: {dosage}")
+        print(f"   Slot: {slot_number}")
+        print(f"   Medicines: {med_label}")
+        print(f"   Notes: {notes}")
         
         try:
-            # Update status to 'dispensing'
-            medicine_ref = db.reference(f'medicines/{PATIENT_UID}/{medicine_id}')
-            medicine_ref.update({'status': 'dispensing'})
+            slot_ref = db.reference(f'slots/{PATIENT_UID}/{slot_id}')
+            slot_ref.update({'status': 'dispensing'})
             print(f"📝 Status updated to 'dispensing'")
             
-            # Dispense the medicine
-            dispense_from_slot(slot, name)
+            dispense_from_slot(slot_number, med_label)
             
-            # Update status to 'dispensed'
-            medicine_ref.update({
+            slot_ref.update({
                 'status': 'dispensed',
-                'dispensedAt': time.strftime('%Y-%m-%dT%H:%M:%S')
+                'dispensedAt': time.strftime('%Y-%m-%dT%H:%M:%S'),
+                'completedAt': time.strftime('%Y-%m-%dT%H:%M:%S')
             })
             print(f"✅ Status updated to 'dispensed'\n")
             
         except Exception as e:
             print(f"❌ Error during dispensing: {e}")
-            # Update status to 'error' for debugging
             try:
-                medicine_ref.update({
-                    'status': 'error',
-                    'errorMessage': str(e)
-                })
+                slot_ref.update({'status': 'error', 'errorMessage': str(e)})
             except:
                 pass
 
+# Keep old name as alias
+handle_medicine_update = handle_slot_update
 
-def on_medicine_change(event):
+
+
+def on_slot_change(event):
     """
-    Callback for Firebase value changes on medicines.
-    
-    Args:
-        event: Firebase event object
+    Callback for Firebase value changes on slots/{PATIENT_UID}.
     """
-    # Get the medicine ID from the path
     path_parts = event.path.strip('/').split('/')
-    if len(path_parts) == 0:
-        # Initial load or full medicines list change
-        medicines_data = event.data
-        if medicines_data:
-            for medicine_id, medicine_data in medicines_data.items():
-                handle_medicine_update(medicine_id, medicine_data)
+    if len(path_parts) == 0 or (len(path_parts) == 1 and path_parts[0] == ''):
+        slots_data = event.data
+        if slots_data:
+            for slot_id, slot_data in slots_data.items():
+                handle_slot_update(slot_id, slot_data)
     else:
-        # Single medicine update
-        medicine_id = path_parts[0]
-        medicine_data = event.data
-        if medicine_data:
-            handle_medicine_update(medicine_id, medicine_data)
+        slot_id = path_parts[0]
+        slot_data = event.data
+        if slot_data and isinstance(slot_data, dict):
+            handle_slot_update(slot_id, slot_data)
+
+# Alias for backward compat
+on_medicine_change = on_slot_change
 
 
 def main():
     """Main monitoring loop."""
     print(f"👂 Starting SmartMeds Raspberry Pi Listener...")
     print(f"   Patient UID: {PATIENT_UID}")
-    print(f"   Monitoring: medicines/{PATIENT_UID}")
+    print(f"   Monitoring: slots/{PATIENT_UID}")
     print(f"   Status: Waiting for dispense requests...\n")
     
-    # Listen to all medicines for this patient
-    medicines_ref = db.reference(f'medicines/{PATIENT_UID}')
-    medicines_ref.listen(on_medicine_change)
+    # Listen to all slots for this patient (new schema)
+    slots_ref = db.reference(f'slots/{PATIENT_UID}')
+    slots_ref.listen(on_slot_change)
     
     # Keep the script running
     try:

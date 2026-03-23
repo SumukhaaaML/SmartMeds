@@ -261,24 +261,26 @@ def resolve_medicine_number(medicine_number: int, patient_uid: str):
         if not patient_uid:
             return None
         
-        # Get all medicines for this patient
-        medicines_ref = db.reference(f'medicines/{patient_uid}')
-        medicines_data = medicines_ref.get()
+        # Get all slots for this patient (new schema)
+        slots_ref = db.reference(f'slots/{patient_uid}')
+        slots_data = slots_ref.get()
         
-        if not medicines_data:
+        if not slots_data:
             return None
         
-        # Find medicine with matching number (or slot as fallback)
-        for med_id, med_data in medicines_data.items():
-            # Check medicineNumber first, fall back to slot
-            med_num = med_data.get('medicineNumber') or med_data.get('slot')
-            if med_num == medicine_number:
+        # Find slot with matching slotNumber
+        for slot_id, slot_data in slots_data.items():
+            slot_num = slot_data.get('slotNumber')
+            if slot_num == medicine_number:
+                meds = slot_data.get('medicines', [])
                 return {
-                    'id': med_id,
-                    'name': med_data.get('name'),
-                    'dosage': med_data.get('dosage', ''),
-                    'slot': med_data.get('slot'),
-                    'medicineNumber': med_num
+                    'id': slot_id,
+                    'name': meds[0] if meds else None,
+                    'medicines': meds,
+                    'notes': slot_data.get('notes', ''),
+                    'scheduledTime': slot_data.get('scheduledTime', ''),
+                    'slot': slot_num,
+                    'slotNumber': slot_num
                 }
         
         return None

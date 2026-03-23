@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { rtdb } from '../../config/firebase';
 import { ref, get, child, set, remove } from 'firebase/database';
+import { LinearGradient } from 'expo-linear-gradient';
 import { caregiverStyles } from './styles/caregiver.styles';
 
 export default function PatientList({ user, onSelectPatient, selectedPatient }) {
@@ -130,19 +131,22 @@ export default function PatientList({ user, onSelectPatient, selectedPatient }) 
                     <TextInput
                         style={caregiverStyles.input}
                         placeholder="Patient Email"
+                        placeholderTextColor="#7f8fa6"
                         value={newPatientEmail}
                         onChangeText={setNewPatientEmail}
                         keyboardType="email-address"
                         autoCapitalize="none"
                     />
                     <TouchableOpacity
-                        style={caregiverStyles.addButton}
+                        style={[caregiverStyles.addButton, { marginTop: 0, alignSelf: 'center' }]}
                         onPress={addPatient}
                         disabled={loading}
                     >
-                        <Text style={caregiverStyles.addButtonText}>
-                            {loading ? 'Adding...' : 'Add'}
-                        </Text>
+                        <LinearGradient colors={['#4facfe', '#00f2fe']} style={caregiverStyles.addButtonGradient}>
+                            <Text style={caregiverStyles.addButtonText}>
+                                {loading ? 'Adding...' : 'Add'}
+                            </Text>
+                        </LinearGradient>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -165,12 +169,10 @@ export default function PatientList({ user, onSelectPatient, selectedPatient }) 
                     <Text style={caregiverStyles.emptyText}>No patients added yet</Text>
                 </View>
             ) : (
-                <FlatList
-                    data={patients}
-                    keyExtractor={(item) => item.id}
-                    scrollEnabled={false}
-                    renderItem={({ item }) => (
+                <View>
+                    {patients.map(item => (
                         <TouchableOpacity
+                            key={item.id}
                             style={[
                                 caregiverStyles.patientItem,
                                 selectedPatient?.id === item.id && caregiverStyles.patientItemActive
@@ -178,20 +180,22 @@ export default function PatientList({ user, onSelectPatient, selectedPatient }) 
                             onPress={() => onSelectPatient(item)}
                         >
                             <View style={caregiverStyles.patientInfo}>
-                                <Text style={caregiverStyles.patientName}>{item.email}</Text>
+                                <Text style={caregiverStyles.patientName}>
+                                    {item.name || item.email.split('@')[0]}
+                                </Text>
                                 <Text style={caregiverStyles.patientEmail}>
-                                    Added {new Date(item.addedAt).toLocaleDateString()}
+                                    {item.email} · Added {new Date(item.addedAt).toLocaleDateString()}
                                 </Text>
                             </View>
                             <TouchableOpacity
                                 style={caregiverStyles.removeButton}
                                 onPress={() => removePatient(item.id)}
                             >
-                                <Ionicons name="close" size={20} color="#fff" />
+                                <Ionicons name="close" size={20} color="#ff6b6b" />
                             </TouchableOpacity>
                         </TouchableOpacity>
-                    )}
-                />
+                    ))}
+                </View>
             )}
         </View>
     );

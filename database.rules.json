@@ -1,153 +1,41 @@
 {
-    "rules": {
-        "users": {
-            ".read": "auth != null",
-            "$uid": {
-                ".read": "auth != null",
-                ".write": "auth != null && auth.uid == $uid",
-                "email": {
-                    ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$/)"
-                },
-                "name": {
-                    ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
-                },
-                "userType": {
-                    ".validate": "newData.val() === 'patient' || newData.val() === 'caregiver'"
-                },
-                "createdAt": {
-                    ".validate": "newData.isString()"
-                },
-                "pushToken": {
-                    ".validate": "!newData.exists() || newData.isString()"
-                },
-                "tokenUpdatedAt": {
-                    ".validate": "!newData.exists() || newData.isString()"
-                }
-            }
-        },
-        "caregivers": {
-            "$caregiverUid": {
-                ".read": "auth != null && auth.uid == $caregiverUid",
-                ".write": "auth != null && auth.uid == $caregiverUid",
-                "patients": {
-                    "$patientUid": {
-                        ".validate": "newData.hasChildren(['name', 'email', 'addedAt'])",
-                        "name": {
-                            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
-                        },
-                        "email": {
-                            ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$/)"
-                        },
-                        "addedAt": {
-                            ".validate": "newData.isString()"
-                        },
-                        "$other": {
-                            ".validate": false
-                        }
-                    }
-                }
-            }
-        },
-        "medicines": {
-            "$patientUid": {
-                ".read": "auth != null",
-                ".write": "auth != null",
-                "$medicineId": {
-                    "name": {
-                        ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
-                    },
-                    "dosage": {
-                        ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 50)"
-                    },
-                    "scheduledTime": {
-                        ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/))"
-                    },
-                    "addedBy": {
-                        ".validate": "!newData.exists() || newData.isString()"
-                    },
-                    "addedAt": {
-                        ".validate": "!newData.exists() || newData.isString()"
-                    },
-                    "slot": {
-                        ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 8)"
-                    },
-                    "medicineNumber": {
-                        ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 8)"
-                    },
-                    "time": {
-                        ".validate": "!newData.exists() || (newData.isString() && (newData.val() === 'morning' || newData.val() === 'afternoon' || newData.val() === 'evening' || newData.val() === 'night'))"
-                    },
-                    "status": {
-                        ".validate": "!newData.exists() || newData.isString()"
-                    },
-                    "dispense": {
-                        ".validate": "!newData.exists() || newData.isBoolean()"
-                    },
-                    "requestedAt": {
-                        ".validate": "!newData.exists() || newData.isString()"
-                    },
-                    "dispensedAt": {
-                        ".validate": "!newData.exists() || newData.isString()"
-                    }
-                }
-            }
-        },
-        "medicineStock": {
-            "$caregiverUid": {
-                ".read": "auth != null && auth.uid == $caregiverUid",
-                ".write": "auth != null && auth.uid == $caregiverUid",
-                "$stockId": {
-                    ".validate": "newData.hasChildren(['name', 'quantity', 'unit', 'addedAt'])",
-                    "name": {
-                        ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
-                    },
-                    "quantity": {
-                        ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999999"
-                    },
-                    "unit": {
-                        ".validate": "newData.isString() && (newData.val() === 'tablets' || newData.val() === 'ml' || newData.val() === 'capsules' || newData.val() === 'bottles')"
-                    },
-                    "expiryDate": {
-                        ".validate": "!newData.exists() || newData.isString()"
-                    },
-                    "reorderLevel": {
-                        ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 999999)"
-                    },
-                    "addedAt": {
-                        ".validate": "newData.isString()"
-                    },
-                    "$other": {
-                        ".validate": false
-                    }
-                }
-            }
-        },
-        "alerts": {
-            "$patientUid": {
-                ".read": "auth != null",
-                ".write": "auth != null",
-                "$alertId": {
-                    ".validate": "newData.hasChildren(['medicineName', 'timestamp'])",
-                    "medicineName": {
-                        ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
-                    },
-                    "dosage": {
-                        ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 50)"
-                    },
-                    "scheduledTime": {
-                        ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/))"
-                    },
-                    "timestamp": {
-                        ".validate": "newData.isString()"
-                    },
-                    "read": {
-                        ".validate": "!newData.exists() || newData.isBoolean()"
-                    },
-                    "$other": {
-                        ".validate": false
-                    }
-                }
-            }
-        }
+  "rules": {
+    "users": {
+      ".read": "auth != null",
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "caregivers": {
+      "$caregiverUid": {
+        ".read": "auth != null && auth.uid == $caregiverUid",
+        ".write": "auth != null && auth.uid == $caregiverUid"
+      }
+    },
+    "slots": {
+      "$patientUid": {
+        ".read": "auth != null && (auth.uid == $patientUid || root.child('caregivers/' + auth.uid + '/patients/' + $patientUid).exists() || root.child('devices/' + auth.uid).exists())",
+        ".write": "auth != null && (auth.uid == $patientUid || root.child('caregivers/' + auth.uid + '/patients/' + $patientUid).exists() || root.child('devices/' + auth.uid).exists())"
+      }
+    },
+    "medicineStock": {
+      "$patientUid": {
+        ".read": "auth != null && (auth.uid == $patientUid || root.child('caregivers/' + auth.uid + '/patients/' + $patientUid).exists() || root.child('devices/' + auth.uid).exists())",
+        ".write": "auth != null && (auth.uid == $patientUid || root.child('caregivers/' + auth.uid + '/patients/' + $patientUid).exists() || root.child('devices/' + auth.uid).exists())"
+      }
+    },
+    "medicines": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "alerts": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "devices": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
+  }
 }

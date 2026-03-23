@@ -84,18 +84,24 @@ export default function Signup({ onSuccess }) {
                 createdAt: new Date().toISOString()
             });
 
-            // If patient, seed default medicines in RTDB
+            // If patient, seed a default slot structure in slots/{uid}
             if (userType === 'patient') {
-                const medicinesRef = ref(rtdb, `medicines/${uid}`);
-                const meds = ['Paracetamol', 'Ibuprofen', 'Aspirin', 'Metformin'];
-                for (const medName of meds) {
-                    const newMedRef = push(medicinesRef);
-                    await set(newMedRef, {
-                        name: medName,
-                        dosage: 'As prescribed',
-                        addedAt: new Date().toISOString()
-                    });
-                }
+                const slotsRef = ref(rtdb, `slots/${uid}`);
+                const firstSlotRef = push(slotsRef);
+                await set(firstSlotRef, {
+                    slotNumber: 1,
+                    medicines: ['Paracetamol 500mg'],
+                    scheduledTime: '08:00',
+                    dayOfWeek: ['mon','tue','wed','thu','fri','sat','sun'],
+                    notes: 'Default slot — edit from Caregiver panel',
+                    status: 'pending',
+                    dispense: true,
+                    reminded: false,
+                    completedAt: null,
+                    missedAt: null,
+                    addedBy: email,
+                    addedAt: new Date().toISOString(),
+                });
             }
 
             // If caregiver, initialize empty patients list

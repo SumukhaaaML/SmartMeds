@@ -1,17 +1,25 @@
 {
-    "cli": {
-        "version": ">= 13.2.0"
+  "cli": {
+    "version": ">= 13.2.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
     },
-    "build": {
-        "development": {
-            "developmentClient": true,
-            "distribution": "internal"
-        },
-        "apk": {
-            "android": {
-                "buildType": "apk"
-            }
-        },
-        "production": {}
+    "preview": {
+      "distribution": "internal"
+    },
+    "apk": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
+  }
 }

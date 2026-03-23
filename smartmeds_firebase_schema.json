@@ -1,0 +1,155 @@
+{
+  "slots": {
+    "HcOuDM7uXTgvG22WS1XXHZcTmqm1": {
+
+      "-slot_mon_am": {
+        "slotNumber":    1,
+        "scheduledTime": "08:00",
+        "scheduledDate": null,
+        "dayOfWeek":     ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+        "medicines":     ["Paracetamol 500mg", "Metformin 500mg"],
+        "notes":         "Take with food",
+        "status":        "pending",
+        "dispense":      false,
+        "reminded":      false,
+        "completedAt":   null,
+        "missedAt":      null,
+        "addedBy":       "caregiver1@gmail.com",
+        "addedAt":       "2026-03-22T05:00:00.000Z"
+      },
+
+      "-slot_mon_pm": {
+        "slotNumber":    2,
+        "scheduledTime": "20:00",
+        "scheduledDate": null,
+        "dayOfWeek":     ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+        "medicines":     ["Aspirin 75mg"],
+        "notes":         "Take after dinner",
+        "status":        "pending",
+        "dispense":      false,
+        "reminded":      false,
+        "completedAt":   null,
+        "missedAt":      null,
+        "addedBy":       "caregiver1@gmail.com",
+        "addedAt":       "2026-03-22T05:00:00.000Z"
+      },
+
+      "-slot_tue_am": {
+        "slotNumber":    3,
+        "scheduledTime": "08:00",
+        "scheduledDate": "2026-03-24",
+        "dayOfWeek":     null,
+        "medicines":     ["Paracetamol 500mg", "Dolo 650mg", "Metformin 500mg"],
+        "notes":         "",
+        "status":        "pending",
+        "dispense":      false,
+        "reminded":      false,
+        "completedAt":   null,
+        "missedAt":      null,
+        "addedBy":       "caregiver1@gmail.com",
+        "addedAt":       "2026-03-22T05:00:00.000Z"
+      }
+
+    }
+  },
+
+  "medicineStock": {
+    "pb6fi6rB5NNTjAIbYavfR3vcNXe2": {
+      "-Ol-tbKS1HlzRSxorAgy": {
+        "addedAt":       "2026-02-09T05:36:10.421Z",
+        "addedBy":       "caregiver1@gmail.com",
+        "expiryDate":    "2026-12-31",
+        "name":          "Paracetamol",
+        "quantity":      498,
+        "reorderLevel":  10,
+        "unit":          "tablets",
+        "low_stock_alert": false
+      },
+      "-stock_aspirin": {
+        "addedAt":       "2026-03-22T05:00:00.000Z",
+        "addedBy":       "caregiver1@gmail.com",
+        "expiryDate":    "2027-01-01",
+        "name":          "Aspirin",
+        "quantity":      60,
+        "reorderLevel":  10,
+        "unit":          "tablets",
+        "low_stock_alert": false
+      },
+      "-stock_metformin": {
+        "addedAt":       "2026-03-22T05:00:00.000Z",
+        "addedBy":       "caregiver1@gmail.com",
+        "expiryDate":    "2026-09-01",
+        "name":          "Metformin",
+        "quantity":      120,
+        "reorderLevel":  15,
+        "unit":          "tablets",
+        "low_stock_alert": false
+      },
+      "-stock_dolo": {
+        "addedAt":       "2026-03-22T05:00:00.000Z",
+        "addedBy":       "caregiver1@gmail.com",
+        "expiryDate":    "2026-11-01",
+        "name":          "Dolo",
+        "quantity":      45,
+        "reorderLevel":  10,
+        "unit":          "tablets",
+        "low_stock_alert": false
+      }
+    }
+  },
+
+  "devices": {
+    "pi_unit_01": {
+      "system_halt": false,
+      "telemetry": {
+        "online":       false,
+        "started_at":   null,
+        "current_slot": 1,
+        "cpu_temp_c":   null,
+        "mem_pct":      null,
+        "wifi_rssi":    null,
+        "uptime_s":     0,
+        "reported_at":  null
+      },
+      "alerts": {
+        "missed_dose":   false,
+        "missed_slot":   null,
+        "missed_meds":   null,
+        "missed_at":     null,
+        "tamper":        false,
+        "tamper_at":     null,
+        "low_stock":     false,
+        "low_stock_med": null,
+        "low_stock_qty": null,
+        "low_stock_at":  null
+      }
+    }
+  },
+
+  "caregivers": {
+    "pb6fi6rB5NNTjAIbYavfR3vcNXe2": {
+      "patients": {
+        "HcOuDM7uXTgvG22WS1XXHZcTmqm1": {
+          "addedAt": "2026-02-09T05:27:42.167Z",
+          "email":   "patient1@gmail.com",
+          "name":    "Patient1"
+        }
+      }
+    }
+  },
+
+  "users": {
+    "HcOuDM7uXTgvG22WS1XXHZcTmqm1": {
+      "createdAt": "2026-02-09T05:17:06.609Z",
+      "email":     "patient1@gmail.com",
+      "name":      "Patient1",
+      "userType":  "patient"
+    },
+    "pb6fi6rB5NNTjAIbYavfR3vcNXe2": {
+      "createdAt": "2026-02-09T05:16:32.292Z",
+      "email":     "caregiver1@gmail.com",
+      "name":      "Caregiver1",
+      "userType":  "caregiver"
+    }
+  }
+}

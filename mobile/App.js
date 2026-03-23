@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
-import { Audio } from 'expo-av';
+import { AudioModule, setAudioModeAsync } from 'expo-audio';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, rtdb } from './src/config/firebase';
 import { ref, get, child } from 'firebase/database';
@@ -94,10 +94,10 @@ export default function App() {
     try {
       if (Platform.OS !== 'web') {
         try {
-          await Audio.requestPermissionsAsync();
-          await Audio.setAudioModeAsync({
-            allowsRecordingIOS: true,
-            playsInSilentModeIOS: true
+          await AudioModule.requestRecordingPermissionsAsync();
+          await setAudioModeAsync({
+            allowsRecording: true,
+            playsInSilentMode: true,
           });
         } catch (permErr) {
           console.warn('Permission request failed:', permErr);

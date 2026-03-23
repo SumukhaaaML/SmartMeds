@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import PatientList from './PatientList';
 import MedicineManager from './MedicineManager';
+import MedicineStock from './MedicineStock';
 import Alerts from './Alerts';
 import { caregiverStyles } from './styles/caregiver.styles';
 
@@ -15,7 +16,7 @@ export default function CaregiverDashboard({ user, onLogout }) {
             <StatusBar barStyle="light-content" />
 
             <LinearGradient
-                colors={['#1a2980', '#26d0ce']}
+                colors={['#0f2027', '#203a43', '#2c5364']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={caregiverStyles.headerBg}
@@ -26,7 +27,7 @@ export default function CaregiverDashboard({ user, onLogout }) {
                         <Text style={caregiverStyles.headerSubtitle}>Logged in as {user?.email?.split('@')[0] || 'Caregiver'}</Text>
                     </View>
                     <TouchableOpacity style={caregiverStyles.signOutBtn} onPress={onLogout}>
-                        <Ionicons name="log-out-outline" size={24} color="#fff" />
+                        <Ionicons name="log-out-outline" size={24} color="#00f2fe" />
                     </TouchableOpacity>
                 </View>
             </LinearGradient>
@@ -37,6 +38,7 @@ export default function CaregiverDashboard({ user, onLogout }) {
                 contentContainerStyle={{ paddingBottom: 20 }}
             >
                 <Alerts user={user} />
+                <MedicineStock user={user} />
                 <PatientList
                     user={user}
                     onSelectPatient={setSelectedPatient}
