@@ -3,6 +3,12 @@
     "name": "SmartMeds",
     "slug": "smartmeds-mobile",
     "version": "1.0.0",
+    "icon": "./assets/Logo.png",
+    "splash": {
+      "image": "./assets/Logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1e272e"
+    },
     "platforms": [
       "ios",
       "android",

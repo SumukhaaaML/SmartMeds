@@ -40,7 +40,7 @@ export default function CaregiverHome({ user, onLogout }) {
   const [useDateMode, setUseDateMode]     = useState(false);
   const [selectedDays, setSelectedDays]   = useState([...DAYS]);
   const [notes, setNotes]                 = useState('');
-  const [dispense, setDispense]           = useState(true);
+  const [dispense, setDispense]           = useState(false);
 
   // ── load patients ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -150,7 +150,7 @@ export default function CaregiverHome({ user, onLogout }) {
       await set(newRef, slotData);
       setSuccess(`Slot ${slotNumber} added for ${selectedPatient.name}`);
       setMedicines(['']); setScheduledTime(''); setScheduledDate('');
-      setSelectedDays([...DAYS]); setNotes(''); setDispense(true);
+      setSelectedDays([...DAYS]); setNotes(''); setDispense(false);
     } catch (err) {
       setError('Failed: ' + err.message);
     } finally {

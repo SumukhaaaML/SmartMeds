@@ -8,7 +8,7 @@ export default function MedicineManager({ selectedPatient, user }) {
     const [newMedicineDosage, setNewMedicineDosage] = useState('');
     const [selectedSlot, setSelectedSlot] = useState('1');
     const [selectedTime, setSelectedTime] = useState('morning');
-    const [autoDispense, setAutoDispense] = useState(true);
+    const [autoDispense, setAutoDispense] = useState(false);
     const [medicineStatus, setMedicineStatus] = useState('pending');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -98,7 +98,7 @@ export default function MedicineManager({ selectedPatient, user }) {
             setNewMedicineDosage('');
             setSelectedSlot('1');
             setSelectedTime('morning');
-            setAutoDispense(true);
+            setAutoDispense(false);
             setMedicineStatus('pending');
         } catch (err) {
             setError('Failed to add medicine: ' + err.message);

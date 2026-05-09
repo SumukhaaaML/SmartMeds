@@ -92,6 +92,9 @@ if FIREBASE_AVAILABLE:
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_SIZE_MB", "15")) * 1024 * 1024
 
+@app.route("/", methods=["GET"])
+def index():
+    return jsonify({"status": "SmartMeds Backend is running!"})
 
 # SECURITY CONFIGURATION
 
