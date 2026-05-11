@@ -84,7 +84,7 @@ export default function MedicineDisplay({ detectedMedicine, user }) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    slot_number:  slotData.slotNumber,
+                    slot_id:      slotData.id,
                     patient_uid:  user.uid,
                     notes:        slotData.notes || '',
                     action:       'dispense'
@@ -92,7 +92,7 @@ export default function MedicineDisplay({ detectedMedicine, user }) {
             });
             const data = await resp.json();
             if (resp.ok) {
-                Alert.alert('Success', `Slot ${slotData.slotNumber} ready to dispense!`);
+                Alert.alert('Success', 'Medicine ready to dispense!');
             } else {
                 Alert.alert('Failed', data.error || 'Could not send instruction');
             }
@@ -325,8 +325,8 @@ const dispStyles = {
     statusBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },
     statusText: { color: '#fff', fontSize: 11, fontWeight: '700' },
     chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10, marginBottom: 6 },
-    chip: { backgroundColor: '#edf2fb', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
-    chipText: { color: '#4834d4', fontSize: 12, fontWeight: '600' },
+    chip: { backgroundColor: '#edf2fb', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, maxWidth: '100%' },
+    chipText: { color: '#4834d4', fontSize: 12, fontWeight: '600', flexWrap: 'wrap' },
     chipDone: { backgroundColor: 'rgba(46, 213, 115, 0.12)', borderWidth: 1, borderColor: 'rgba(46,213,115,0.3)' },
     chipTextDone: { color: '#2ed573' },
     notes: { fontSize: 12, color: '#6c5ce7', fontStyle: 'italic', marginTop: 4 },

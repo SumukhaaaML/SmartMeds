@@ -693,6 +693,7 @@ def send_instruction():
     data = request.get_json() or {}
     medicine_name = data.get("medicine_name")
     slot_number = data.get("medicine_number") or data.get("slot_number")
+    slot_id = data.get("slot_id")
     patient_uid = data.get("patient_uid")
     dosage = data.get("dosage", "")
     notes = data.get("notes", "")
@@ -712,8 +713,13 @@ def send_instruction():
         target_slot = None
         target_slot_id = None
 
+        # Priority 0: by direct slot_id (Firebase key)
+        if slot_id and slot_id in slots_data:
+            target_slot = slots_data[slot_id]
+            target_slot_id = slot_id
+
         # Priority 1: by slot number
-        if slot_number is not None:
+        if not target_slot_id and slot_number is not None:
             for sid, slot in slots_data.items():
                 if slot.get('slotNumber') == int(slot_number):
                     target_slot = slot

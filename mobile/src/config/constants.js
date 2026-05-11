@@ -1,6 +1,6 @@
 // Backend URL - Update this with your computer's IP address for physical devices
 // For emulator/simulator, use 127.0.0.1 or localhost
-export const BACKEND_URL = 'https://freemasonic-unfine-rana.ngrok-free.dev';
+export const BACKEND_URL = 'https://smartmeds-6lht.onrender.com';
 
 // API Endpoints
 export const API_ENDPOINTS = {

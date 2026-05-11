@@ -31,7 +31,7 @@ export default function MedicineManager({ selectedPatient, user }) {
     const [selectedDays, setSelectedDays] = useState(DAYS);
     const [useDateMode, setUseDateMode] = useState(false);
     const [notes, setNotes] = useState('');
-    const [dispense, setDispense] = useState(true);
+    const [dispense, setDispense] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -100,7 +100,7 @@ export default function MedicineManager({ selectedPatient, user }) {
                 dayOfWeek: useDateMode ? null : selectedDays,
                 notes: notes.trim() || '',
                 status: 'pending',
-                dispense: dispense,
+                dispense: false,    // only set true when patient requests dispensing
                 reminded: false,
                 addedBy: user.email,
                 addedAt: new Date().toISOString(),
