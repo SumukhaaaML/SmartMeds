@@ -392,7 +392,7 @@ export default function MedicineManager({ selectedPatient, user }) {
                 </>
             )}
         </View>
-    );
+n    );
 }
 
 function statusColor(status) {
